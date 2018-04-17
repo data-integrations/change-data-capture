@@ -1,0 +1,117 @@
+{
+  "metadata": {
+    "spec-version": "1.0"
+  },
+  "configuration-groups": [
+    {
+      "label": "Kudu Configuration",
+      "properties": [
+        {
+          "widget-type" : "textbox",
+          "label" : "Reference Name",
+          "name" : "referenceName",
+          "description" : "Reference specifies the name to be used to track this external source"
+        },
+        {
+          "widget-type": "textbox",
+          "label": "Master Addresses",
+          "name": "master",
+          "description": "Comma separated list of hostname:port of Apache Kudu Masters"
+        }
+      ]
+    },
+    {
+      "label": "Kudu Advanced Options",
+      "properties" : [
+        {
+          "widget-type": "number",
+          "label": "No of buckets (DEFAULT: 16)",
+          "name": "buckets",
+          "widget-attributes" : {
+            "default" : 16
+          }
+        },
+        {
+          "widget-type": "number",
+          "label": "Seed to randomize the mapping of rows to hash buckets (DEFAULT: 0)",
+          "name": "seed",
+          "widget-attributes" : {
+            "default" : 1
+          }
+        },
+        {
+          "widget-type": "select",
+          "label": "Compression Algorithm. All fields will be applied same compression. (DEFAULT: Snappy)",
+          "name": "compression-algo",
+          "widget-attributes" : {
+            "values" : [
+              "Snappy",
+              "LZ4",
+              "ZLib",
+              "Backend configured",
+              "No Compression"
+            ],
+            "default": "Snappy"
+          }
+        },
+        {
+          "widget-type": "select",
+          "label": "Encoding Type. All fields will be applied same encoding. (DEFAULT : Auto)",
+          "name": "encoding",
+          "widget-attributes" : {
+            "values": [
+              "Auto",
+              "Plain",
+              "Prefix",
+              "Group Variant",
+              "RLE",
+              "Dictionary",
+              "Bit Shuffle"
+            ],
+            "default": "Auto"
+          }
+        },
+        {
+          "widget-type": "number",
+          "label": "User operations timeout in milliseconds (DEFAULT: 30000ms)",
+          "name": "opt-timeout",
+          "widget-attributes" : {
+            "default" : 30000
+          }
+        },
+        {
+          "widget-type": "number",
+          "label": "Administration operation timeout in milliseconds (DEFAULT: 30000ms)",
+          "name": "admin-timeout",
+          "widget-attributes" : {
+            "default" : 30000
+          }
+        },
+        {
+          "widget-type": "number",
+          "label": "Number of copies (DEFAULT: 1)",
+          "name": "replicas",
+          "widget-attributes" : {
+            "default" : 1
+          }
+        },
+        {
+          "widget-type": "number",
+          "label": "Rows to be cached before being flushed (DEFAULT: 1000)",
+          "name" : "row-flush",
+          "widget-attributes" : {
+            "default" : 1000
+          }
+        },
+        {
+          "widget-type": "number",
+          "label" : "Specifies the number of boss threads to be used by the client.",
+          "name": "boss-threads",
+          "widget-attributes" : {
+            "default" : 1
+          }
+        }
+      ]
+    }
+  ]
+}

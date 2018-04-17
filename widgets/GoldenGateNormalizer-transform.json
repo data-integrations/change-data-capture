@@ -1,0 +1,74 @@
+{
+  "metadata": {
+    "spec-version": "1.3"
+  },
+  "configuration-groups": [
+    {
+      "label": "Normalizer Configuration",
+      "properties": [
+        {
+          "widget-type": "select",
+          "label": "Include namespace name in table name",
+          "name": "includeNamespaceInTableName",
+          "widget-attributes": {
+            "values": [
+              "true",
+              "false"
+            ],
+            "default": "false"
+          }
+        }
+      ]
+    }
+  ],
+  "outputs": [
+    {
+      "widget-type": "non-editable-schema-editor",
+      "schema": {
+        "type": "record",
+        "name": "etlSchemaBody",
+        "fields": [
+          {
+            "name": "op_type",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          {
+            "name": "table",
+            "type": "string"
+          },
+          {
+            "name": "primary_keys",
+            "type": {
+              "type": "array",
+              "items": "string"
+            }
+          },
+          {
+            "name": "schema",
+            "type": "string"
+          },
+          {
+            "name": "change",
+            "type": {
+              "type": "record",
+              "name": "changerecord",
+              "fields": [
+                {
+                  "name": "columns",
+                  "type": {
+                    "type": "map",
+                    "keys": "string",
+                    "values": "string"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

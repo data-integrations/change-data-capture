@@ -1,0 +1,90 @@
+{
+  "metadata": {
+    "spec-version": "1.3"
+  },
+  "configuration-groups": [
+    {
+      "label": "Kafka Configuration",
+      "properties": [
+        {
+          "widget-type": "textbox",
+          "label": "Reference Name",
+          "name": "referenceName"
+        },
+        {
+          "widget-type": "textbox",
+          "label": "Kafka Broker",
+          "name": "broker"
+        },
+        {
+          "widget-type": "textbox",
+          "label": "Kafka Topic",
+          "name": "topic"
+        },
+        {
+          "widget-type": "textbox",
+          "label": "Default Initial Offset",
+          "name": "defaultInitialOffset"
+        },
+        {
+          "widget-type": "textbox",
+          "label": "Max Rate Per Partition",
+          "name": "maxRatePerPartition",
+          "widget-attributes": {
+            "default": "1000"
+          }
+        }
+      ]
+    }
+  ],
+  "outputs": [
+    {
+      "widget-type": "non-editable-schema-editor",
+      "schema": {
+        "type": "record",
+        "name": "etlSchemaBody",
+        "fields": [
+          {
+            "name": "op_type",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          {
+            "name": "table",
+            "type": "string"
+          },
+          {
+            "name": "primary_keys",
+            "type": {
+              "type": "array",
+              "items": "string"
+            }
+          },
+          {
+            "name": "schema",
+            "type": "string"
+          },
+          {
+            "name": "change",
+            "type": {
+              "type": "record",
+              "name": "changerecord",
+              "fields": [
+                {
+                  "name": "columns",
+                  "type": {
+                    "type": "map",
+                    "keys": "string",
+                    "values": "string"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
