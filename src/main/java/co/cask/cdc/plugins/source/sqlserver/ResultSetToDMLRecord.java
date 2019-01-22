@@ -57,8 +57,10 @@ public class ResultSetToDMLRecord extends AbstractFunction1<ResultSet, Structure
     ResultSetMetaData metadata = resultSet.getMetaData();
     for (int i = 0; i < changeSchema.getFields().size(); i++) {
       int sqlColumnType = metadata.getColumnType(i + CHANGE_TABLE_COLUMNS_SIZE);
+      int sqlPrecision = metadata.getPrecision(i + CHANGE_TABLE_COLUMNS_SIZE);
+      int sqlScale = metadata.getScale(i + CHANGE_TABLE_COLUMNS_SIZE);
       Schema.Field field = changeSchema.getFields().get(i);
-      changeRecordBuilder.set(field.getName(), DBUtils.transformValue(sqlColumnType, resultSet, field.getName()));
+      changeRecordBuilder.set(field.getName(), DBUtils.transformValue(sqlColumnType, sqlPrecision, sqlScale, resultSet, field.getName()));
     }
     StructuredRecord changeRecord = changeRecordBuilder.build();
     recordBuilder.set("change", changeRecord);
