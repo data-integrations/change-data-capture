@@ -20,7 +20,7 @@
   <groupId>co.cask.cdc</groupId>
   <artifactId>cask-cdc</artifactId>
   <packaging>jar</packaging>
-  <version>1.1.0-SNAPSHOT</version>
+  <version>2.0.0-SNAPSHOT</version>
   <name>cask-cdc</name>
 
   <licenses>
@@ -49,24 +49,34 @@
   <repositories>
     <repository>
       <id>sonatype.release</id>
-      <url>https://oss.sonatype.org/service/local/staging/deploy/maven2</url>
+      <url>https://oss.sonatype.org/content/groups/public</url>
+      <snapshots>
+        <enabled>false</enabled>
+      </snapshots>
     </repository>
     <repository>
       <id>sonatype-snapshots</id>
       <url>https://oss.sonatype.org/content/repositories/snapshots</url>
+      <releases>
+        <enabled>false</enabled>
+      </releases>
     </repository>
     <repository>
       <id>cloudera</id>
       <url>https://repository.cloudera.com/content/repositories/releases/</url>
+      <snapshots>
+        <enabled>false</enabled>
+      </snapshots>
     </repository>
   </repositories>
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <cdap.version>5.0.0-SNAPSHOT</cdap.version>
-    <hydrator.version>2.0.0-SNAPSHOT</hydrator.version>
-    <bigtable.version>1.0.0-pre3</bigtable.version>
-    <spark.version>1.6.1</spark.version>
+    <cdap.version>6.0.0-SNAPSHOT</cdap.version>
+    <hydrator.version>2.2.0-SNAPSHOT</hydrator.version>
+    <google.cloud.core.version>1.61.0</google.cloud.core.version>
+    <bigtable.version>1.8.0</bigtable.version>
+    <spark.version>2.1.3</spark.version>
     <commons.version>1.2</commons.version>
     <avro.version>1.8.1</avro.version>
     <kudu.version>1.2.0-cdh5.10.0</kudu.version>
@@ -76,6 +86,8 @@
     <kafka.version>0.8.2.2</kafka.version>
     <mssql.jdbc.version>6.1.0.jre7</mssql.jdbc.version>
     <hadoop.version>2.6.0-cdh5.10.0</hadoop.version>
+    <guava.version>18.0</guava.version>
+    <netty.version>4.1.8.Final</netty.version>
     <!-- properties for script build step that creates the config files for the artifacts -->
     <app.parents>system:cdap-data-streams[4.1.0-SNAPSHOT,10.0.0)</app.parents>
     <main.basedir>${project.basedir}</main.basedir>
@@ -84,13 +96,18 @@
   <dependencies>
     <dependency>
       <groupId>com.google.cloud.bigtable</groupId>
-      <artifactId>bigtable-hbase-1.x</artifactId>
+      <artifactId>bigtable-hbase-1.x-shaded</artifactId>
       <version>${bigtable.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.google.cloud</groupId>
+      <artifactId>google-cloud-core</artifactId>
+      <version>${google.cloud.core.version}</version>
     </dependency>
     <dependency>
       <groupId>com.google.guava</groupId>
       <artifactId>guava</artifactId>
-      <version>18.0</version>
+      <version>${guava.version}</version>
     </dependency>
     <dependency>
       <groupId>org.apache.hbase</groupId>
@@ -118,7 +135,7 @@
     <dependency>
       <groupId>io.netty</groupId>
       <artifactId>netty-all</artifactId>
-      <version>4.1.8.Final</version>
+      <version>${netty.version}</version>
     </dependency>
     <dependency>
       <groupId>org.apache.hbase</groupId>
@@ -195,7 +212,7 @@
     </dependency>
     <dependency>
       <groupId>org.apache.kafka</groupId>
-      <artifactId>kafka_2.10</artifactId>
+      <artifactId>kafka_2.11</artifactId>
       <version>${kafka.version}</version>
     </dependency>
     <dependency>
@@ -205,66 +222,14 @@
     </dependency>
     <dependency>
       <groupId>org.apache.spark</groupId>
-      <artifactId>spark-streaming-kafka_2.10</artifactId>
+      <artifactId>spark-streaming-kafka-0-8_2.11</artifactId>
       <version>${spark.version}</version>
     </dependency>
     <dependency>
       <groupId>org.apache.spark</groupId>
-      <artifactId>spark-streaming_2.10</artifactId>
+      <artifactId>spark-streaming_2.11</artifactId>
       <version>${spark.version}</version>
       <scope>provided</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.spark</groupId>
-      <artifactId>spark-core_2.10</artifactId>
-      <version>${spark.version}</version>
-      <scope>provided</scope>
-      <exclusions>
-        <exclusion>
-          <groupId>asm</groupId>
-          <artifactId>asm</artifactId>
-        </exclusion>
-        <exclusion>
-          <groupId>org.slf4j</groupId>
-          <artifactId>slf4j-log4j12</artifactId>
-        </exclusion>
-        <exclusion>
-          <groupId>log4j</groupId>
-          <artifactId>log4j</artifactId>
-        </exclusion>
-        <exclusion>
-          <groupId>org.apache.hadoop</groupId>
-          <artifactId>hadoop-client</artifactId>
-        </exclusion>
-        <exclusion>
-          <groupId>com.esotericsoftware.reflectasm</groupId>
-          <artifactId>reflectasm</artifactId>
-        </exclusion>
-        <exclusion>
-          <groupId>org.apache.curator</groupId>
-          <artifactId>curator-recipes</artifactId>
-        </exclusion>
-        <exclusion>
-          <groupId>org.tachyonproject</groupId>
-          <artifactId>tachyon-client</artifactId>
-        </exclusion>
-        <exclusion>
-          <groupId>org.scala-lang</groupId>
-          <artifactId>scala-compiler</artifactId>
-        </exclusion>
-        <exclusion>
-          <groupId>org.eclipse.jetty.orbit</groupId>
-          <artifactId>javax.servlet</artifactId>
-        </exclusion>
-        <!--
-          Need to exclude this since Spark brings in an older version that makes
-          S3 not work in standalone. This doesn't affect distributed mode.
-        -->
-        <exclusion>
-          <groupId>net.java.dev.jets3t</groupId>
-          <artifactId>jets3t</artifactId>
-        </exclusion>
-      </exclusions>
     </dependency>
     <dependency>
       <groupId>org.apache.kudu</groupId>

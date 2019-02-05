@@ -6,9 +6,9 @@ import co.cask.cdap.api.annotation.Plugin;
 import co.cask.cdap.api.data.format.StructuredRecord;
 import co.cask.cdap.etl.api.streaming.StreamingContext;
 import co.cask.cdap.etl.api.streaming.StreamingSource;
-import com.google.common.base.Optional;
 import com.microsoft.sqlserver.jdbc.SQLServerDriver;
 import org.apache.spark.api.java.JavaPairRDD;
+import org.apache.spark.api.java.Optional;
 import org.apache.spark.api.java.function.Function;
 import org.apache.spark.api.java.function.Function3;
 import org.apache.spark.api.java.function.PairFunction;
@@ -30,6 +30,9 @@ import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * Streaming source for reading changes from SQL Server.
+ */
 @Plugin(type = StreamingSource.PLUGIN_TYPE)
 @Name("CTSQLServer")
 @Description("SQL Server Change Tracking Streaming Source")
