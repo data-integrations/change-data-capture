@@ -24,7 +24,6 @@ import co.cask.cdap.api.data.schema.Schema;
 import co.cask.cdap.etl.api.PipelineConfigurer;
 import co.cask.cdap.etl.api.streaming.StreamingContext;
 import co.cask.cdap.etl.api.streaming.StreamingSource;
-import com.google.common.base.Optional;
 import kafka.api.OffsetRequest;
 import kafka.api.PartitionOffsetRequestInfo;
 import kafka.common.TopicAndPartition;
@@ -38,6 +37,7 @@ import kafka.message.MessageAndMetadata;
 import kafka.serializer.DefaultDecoder;
 import org.apache.avro.SchemaNormalization;
 import org.apache.spark.api.java.JavaRDD;
+import org.apache.spark.api.java.Optional;
 import org.apache.spark.api.java.function.FlatMapFunction;
 import org.apache.spark.api.java.function.Function;
 import org.apache.spark.api.java.function.Function3;
@@ -55,6 +55,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 
@@ -232,9 +233,9 @@ public class GoldenGateKafka extends ReferenceStreamingSource<StructuredRecord> 
       }
     }).mapWithState(StateSpec.function(mapFunction)).flatMap(new FlatMapFunction<StructuredRecord, StructuredRecord>() {
       @Override
-      public Iterable<StructuredRecord> call(StructuredRecord record) throws Exception {
+      public Iterator<StructuredRecord> call(StructuredRecord record) throws Exception {
         Normalizer normalizer = new Normalizer();
-        return normalizer.transform(record);
+        return normalizer.transform(record).iterator();
       }
     });
   }
