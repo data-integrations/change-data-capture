@@ -2,8 +2,8 @@ package co.cask.cdc.plugins.source.oracle;
 
 import co.cask.cdap.api.common.Bytes;
 
-import javax.annotation.Nonnull;
 import java.nio.ByteBuffer;
+import javax.annotation.Nonnull;
 
 /**
  * Utility methods for dealing with binary messages.

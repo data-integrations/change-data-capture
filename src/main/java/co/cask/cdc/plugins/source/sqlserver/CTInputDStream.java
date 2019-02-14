@@ -53,7 +53,7 @@ public class CTInputDStream extends InputDStream<StructuredRecord> {
 
       List<RDD<StructuredRecord>> changeRDDs = new LinkedList<>();
 
-      // Get the schema of tables. We get the schema of tables every microbatch because we want to update  the downstream
+      // Get the schema of tables. We get the schema of tables every microbatch because we want to update the downstream
       // dataset with the DDL changes if any.
       for (TableInformation tableInformation : tableInformations) {
         changeRDDs.add(getColumnns(tableInformation));

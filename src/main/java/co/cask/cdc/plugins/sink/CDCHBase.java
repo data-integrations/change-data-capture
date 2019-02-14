@@ -19,6 +19,7 @@ package co.cask.cdc.plugins.sink;
 import co.cask.cdap.api.annotation.Name;
 import co.cask.cdap.api.annotation.Plugin;
 import co.cask.cdap.api.data.format.StructuredRecord;
+import co.cask.cdap.api.plugin.PluginConfig;
 import co.cask.cdap.etl.api.batch.SparkExecutionPluginContext;
 import co.cask.cdap.etl.api.batch.SparkPluginContext;
 import co.cask.cdap.etl.api.batch.SparkSink;
@@ -50,7 +51,8 @@ public class CDCHBase extends SparkSink<StructuredRecord> {
   }
 
   @Override
-  public void prepareRun(SparkPluginContext context) throws Exception { }
+  public void prepareRun(SparkPluginContext context) throws Exception {
+  }
 
   @Override
   public void run(SparkExecutionPluginContext context, JavaRDD<StructuredRecord> javaRDD) throws Exception {
@@ -89,7 +91,7 @@ public class CDCHBase extends SparkSink<StructuredRecord> {
     }
     Configuration conf = job.getConfiguration();
 
-    for(Map.Entry<String, String> configEntry : hadoopConfigs.entrySet()) {
+    for (Map.Entry<String, String> configEntry : hadoopConfigs.entrySet()) {
       conf.set(configEntry.getKey(), configEntry.getValue());
     }
 
@@ -100,6 +102,9 @@ public class CDCHBase extends SparkSink<StructuredRecord> {
     return namespacedTableName.split("\\.")[1];
   }
 
+  /**
+   * Defines the {@link PluginConfig} for the {@link CDCHBase}.
+   */
   public static class CDCHBaseConfig extends ReferencePluginConfig {
     public CDCHBaseConfig(String referenceName) {
       super(referenceName);
