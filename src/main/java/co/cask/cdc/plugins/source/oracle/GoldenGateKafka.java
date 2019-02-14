@@ -27,7 +27,11 @@ import co.cask.cdap.etl.api.streaming.StreamingSource;
 import kafka.api.OffsetRequest;
 import kafka.api.PartitionOffsetRequestInfo;
 import kafka.common.TopicAndPartition;
-import kafka.javaapi.*;
+import kafka.javaapi.OffsetResponse;
+import kafka.javaapi.PartitionMetadata;
+import kafka.javaapi.TopicMetadata;
+import kafka.javaapi.TopicMetadataRequest;
+import kafka.javaapi.TopicMetadataResponse;
 import kafka.javaapi.consumer.SimpleConsumer;
 import kafka.message.MessageAndMetadata;
 import kafka.serializer.DefaultDecoder;
@@ -44,7 +48,11 @@ import org.slf4j.LoggerFactory;
 import scala.Tuple2;
 
 import java.nio.charset.StandardCharsets;
-import java.util.*;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * Streaming source for reading from Golden Gate Kafka topic.
@@ -61,10 +69,11 @@ public class GoldenGateKafka extends ReferenceStreamingSource<StructuredRecord> 
   private static final Schema TRANSFORMED_MESSAGE
     = Schema.recordOf("Message", Schema.Field.of("message", Schema.of(Schema.Type.BYTES)));
 
-  private static final Schema STATE_SCHEMA = Schema.recordOf("state",
-                                                             Schema.Field.of("data",
-                                                                             Schema.mapOf(Schema.of(Schema.Type.LONG),
-                                                                                          Schema.of(Schema.Type.STRING))));
+  private static final Schema STATE_SCHEMA
+    = Schema.recordOf("state",
+                      Schema.Field.of("data",
+                                      Schema.mapOf(Schema.of(Schema.Type.LONG),
+                                                   Schema.of(Schema.Type.STRING))));
 
   private static final Schema DML_SCHEMA = Schema.recordOf("DMLRecord",
                                                            Schema.Field.of("message", Schema.of(Schema.Type.BYTES)),
@@ -88,7 +97,7 @@ public class GoldenGateKafka extends ReferenceStreamingSource<StructuredRecord> 
 
     // Make sure that Golden Gate kafka topic only have single partition
     SimpleConsumer consumer = new SimpleConsumer(conf.getHost(), conf.getPort(), 20 * 1000, 128 * 1024,
-      "partitionLookup");
+                                                 "partitionLookup");
     try {
       getPartitionId(consumer);
     } finally {
@@ -107,7 +116,7 @@ public class GoldenGateKafka extends ReferenceStreamingSource<StructuredRecord> 
     context.registerLineage(conf.referenceName);
 
     SimpleConsumer consumer = new SimpleConsumer(conf.getHost(), conf.getPort(), 20 * 1000, 128 * 1024,
-      "partitionLookup");
+                                                 "partitionLookup");
     Map<TopicAndPartition, Long> offsets;
     try {
       offsets = loadOffsets(consumer);
@@ -174,8 +183,9 @@ public class GoldenGateKafka extends ReferenceStreamingSource<StructuredRecord> 
     }
 
     if (partitions.size() > 1) {
-      throw new IllegalArgumentException(String.format("Topic '%s' should only have one partition." +
-        " Found '%s' partitions.", conf.getTopic(), partitions.size()));
+      throw new IllegalArgumentException(
+        String.format("Topic '%s' should only have one partition. Found '%s' partitions.",
+                      conf.getTopic(), partitions.size()));
     }
     return partitions.iterator().next();
   }

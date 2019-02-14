@@ -11,7 +11,7 @@ import javax.annotation.Nullable;
 /**
  * Defines the {@link PluginConfig} for the {@link CTSQLServer}.
  */
-public class ConnectionConfig extends ReferencePluginConfig {
+public class CTSQLServerConfig extends ReferencePluginConfig {
 
 
   public static final String HOST_NAME = "hostname";
@@ -49,15 +49,15 @@ public class ConnectionConfig extends ReferencePluginConfig {
   @Macro
   public String password;
 
-  public ConnectionConfig() {
+  public CTSQLServerConfig() {
     super("");
     port = 1433;
     username = null;
     password = null;
   }
 
-  public ConnectionConfig(String referenceName, String hostname, int port, String dbName, String username,
-                          String password) {
+  public CTSQLServerConfig(String referenceName, String hostname, int port, String dbName, String username,
+                           String password) {
     super(referenceName);
     this.hostname = hostname;
     this.port = port;

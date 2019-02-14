@@ -42,8 +42,8 @@ import java.util.Objects;
  * Class responsible for normalizing the StructuredRecords to be sent to the CDC sinks
  */
 public class Normalizer {
-  private static Logger LOG = LoggerFactory.getLogger(Normalizer.class);
-  private static Gson GSON = new Gson();
+  private static final Logger LOG = LoggerFactory.getLogger(Normalizer.class);
+  private static final Gson GSON = new Gson();
   private static final Schema DDL_SCHEMA = Schema.recordOf("DDLRecord",
                                                            Schema.Field.of("table", Schema.of(Schema.Type.STRING)),
                                                            Schema.Field.of("schema", Schema.of(Schema.Type.STRING)));
@@ -55,6 +55,7 @@ public class Normalizer {
    * One input record can result into multiple output records. For example in case of primary key
    * updates, the output record consist of two StructuredRcords, one represents delete and another represnents
    * insert.
+   *
    * @param input record containing message as byte array to be normalized
    * @return {@link List} of normalized records
    */
@@ -64,7 +65,7 @@ public class Normalizer {
       throw new IllegalStateException(String.format("Input record does not contain the field '%s'.", INPUT_FIELD));
     }
 
-    if (input.getSchema().getRecordName().equals("GenericWrapperSchema")) {
+    if ("GenericWrapperSchema".equals(input.getSchema().getRecordName())) {
       // Do nothing for the generic wrapper schema message
       // Return empty list
       return new ArrayList<>();
@@ -82,7 +83,7 @@ public class Normalizer {
     }
 
     String messageBody = new String(messageBytes, StandardCharsets.UTF_8);
-    if (input.getSchema().getRecordName().equals("DDLRecord")) {
+    if ("DDLRecord".equals(input.getSchema().getRecordName())) {
       JsonObject schemaObj = GSON.fromJson(messageBody, JsonObject.class);
       String namespaceName = schemaObj.get("namespace").getAsString();
       String tableName = schemaObj.get("name").getAsString();
@@ -128,7 +129,7 @@ public class Normalizer {
       }
     }
 
-    LOG.debug("Schema for DDL {}", Schema.recordOf("columns", columnFields).toString());
+    LOG.debug("Schema for DDL {}", Schema.recordOf("columns", columnFields));
     return Schema.recordOf("columns", columnFields).toString();
   }
 
@@ -163,10 +164,10 @@ public class Normalizer {
     List<String> primaryKeys = record.get("primary_keys");
     String opType = record.get("op_type");
     Map<Schema.Field, Object> suppliedFieldValues = new HashMap<>();
-    switch(opType) {
+    switch (opType) {
       case "I":
         StructuredRecord insertRecord = record.get("after");
-        for (co.cask.cdap.api.data.schema.Schema.Field field : insertRecord.getSchema().getFields()) {
+        for (Schema.Field field : insertRecord.getSchema().getFields()) {
           if (!field.getName().endsWith("_isMissing")) {
             suppliedFieldValues.put(field, insertRecord.get(field.getName()));
           }
@@ -185,7 +186,7 @@ public class Normalizer {
         }
 
         suppliedFieldValues.clear();
-        for (co.cask.cdap.api.data.schema.Schema.Field field : afterUpdateRecord.getSchema().getFields()) {
+        for (Schema.Field field : afterUpdateRecord.getSchema().getFields()) {
           if (!field.getName().endsWith("_isMissing")) {
             String fieldName = field.getName();
             if (!((boolean) afterUpdateRecord.get(fieldName + "_isMissing"))) {
@@ -226,7 +227,7 @@ public class Normalizer {
   private Map<Schema.Field, Object> addDeleteFields(StructuredRecord record) {
     Map<Schema.Field, Object> fieldValues = new HashMap<>();
     StructuredRecord deleteRecord = record.get("before");
-    for (co.cask.cdap.api.data.schema.Schema.Field field : deleteRecord.getSchema().getFields()) {
+    for (Schema.Field field : deleteRecord.getSchema().getFields()) {
       if (!field.getName().endsWith("_isMissing")) {
         fieldValues.put(field, deleteRecord.get(field.getName()));
       }
@@ -238,7 +239,7 @@ public class Normalizer {
                                            Map<Schema.Field, Object> changedFields) {
     Schema changeSchema = Schema.recordOf("change", changedFields.keySet());
     StructuredRecord.Builder changeBuilder = StructuredRecord.builder(changeSchema);
-    for(Map.Entry<Schema.Field, Object> entry : changedFields.entrySet()) {
+    for (Map.Entry<Schema.Field, Object> entry : changedFields.entrySet()) {
       changeBuilder.set(entry.getKey().getName(), entry.getValue());
     }
 

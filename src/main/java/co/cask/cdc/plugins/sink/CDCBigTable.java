@@ -21,6 +21,7 @@ import co.cask.cdap.api.annotation.Macro;
 import co.cask.cdap.api.annotation.Name;
 import co.cask.cdap.api.annotation.Plugin;
 import co.cask.cdap.api.data.format.StructuredRecord;
+import co.cask.cdap.api.plugin.PluginConfig;
 import co.cask.cdap.etl.api.batch.SparkExecutionPluginContext;
 import co.cask.cdap.etl.api.batch.SparkPluginContext;
 import co.cask.cdap.etl.api.batch.SparkSink;
@@ -53,7 +54,8 @@ public class CDCBigTable extends SparkSink<StructuredRecord> {
   }
 
   @Override
-  public void prepareRun(SparkPluginContext context) throws Exception { }
+  public void prepareRun(SparkPluginContext context) throws Exception {
+  }
 
   @Override
   public void run(SparkExecutionPluginContext context, JavaRDD<StructuredRecord> javaRDD) throws Exception {
@@ -66,7 +68,8 @@ public class CDCBigTable extends SparkSink<StructuredRecord> {
           StructuredRecord input = structuredRecordIterator.next();
           String tableName = CDCHBase.getTableName(input.get("table"));
           if ("DDLRecord".equals(input.getSchema().getRecordName())) {
-            // Notes: In BigTable, there no such thing as namespace. Dots are allowed in table names, but colons are not.
+            // Notes: In BigTable, there no such thing as namespace.
+            // Dots are allowed in table names, but colons are not.
             // If you try a table name with a colon in it, you will get:
             // io.grpc.StatusRuntimeException: INVALID_ARGUMENT: Invalid id for collection tables : \
             // Should match [_a-zA-Z0-9][-_.a-zA-Z0-9]* but found 'ns:abcd'
@@ -98,7 +101,7 @@ public class CDCBigTable extends SparkSink<StructuredRecord> {
 
       BigtableConfiguration.configure(conf, config.project, config.instance);
       conf.set(BigtableOptionsFactory.BIGTABLE_SERVICE_ACCOUNT_JSON_KEYFILE_LOCATION_KEY,
-        config.serviceAccountFilePath);
+               config.serviceAccountFilePath);
 
       return BigtableConfiguration.connect(conf);
     } finally {
@@ -107,6 +110,9 @@ public class CDCBigTable extends SparkSink<StructuredRecord> {
     }
   }
 
+  /**
+   * Defines the {@link PluginConfig} for the {@link CDCBigTable}.
+   */
   public static class CDCBigTableConfig extends ReferencePluginConfig {
 
     @Name("instance")

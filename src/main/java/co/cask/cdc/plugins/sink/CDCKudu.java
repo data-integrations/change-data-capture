@@ -26,17 +26,27 @@ import co.cask.cdap.etl.api.batch.SparkSink;
 import com.google.common.collect.Sets;
 import org.apache.kudu.ColumnSchema;
 import org.apache.kudu.Type;
-import org.apache.kudu.client.*;
+import org.apache.kudu.client.AlterTableOptions;
+import org.apache.kudu.client.CreateTableOptions;
+import org.apache.kudu.client.Delete;
+import org.apache.kudu.client.Insert;
+import org.apache.kudu.client.KuduClient;
+import org.apache.kudu.client.KuduException;
+import org.apache.kudu.client.KuduSession;
+import org.apache.kudu.client.KuduTable;
+import org.apache.kudu.client.PartialRow;
+import org.apache.kudu.client.SessionConfiguration;
+import org.apache.kudu.client.Update;
 import org.apache.spark.api.java.JavaRDD;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nullable;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import javax.annotation.Nullable;
 
 /**
  * Spark compute plugin
@@ -45,11 +55,11 @@ import java.util.Set;
 @Name("CDCKudu")
 public class CDCKudu extends SparkSink<StructuredRecord> {
   private static final Logger LOG = LoggerFactory.getLogger(CDCKudu.class);
-  private final CDCKuduConfig CDCKuduConfig;
+  private final CDCKuduConfig config;
   private final Set<String> existingTables = new HashSet<>();
 
   public CDCKudu(CDCKuduConfig config) {
-    CDCKuduConfig = config;
+    this.config = config;
   }
 
   private boolean updateKuduTableSchema(KuduClient client, StructuredRecord input) throws Exception {
@@ -209,10 +219,11 @@ public class CDCKudu extends SparkSink<StructuredRecord> {
       if (!client.tableExists(tableName)) {
         // Convert the writeSchema into Kudu schema.
         List<ColumnSchema> columnSchemas = toKuduSchema(fields, new HashSet<>(primaryKeys),
-                                                        CDCKuduConfig.getCompression(), CDCKuduConfig.getEncoding());
-        org.apache.kudu.Schema kuduSchema = new org.apache.kudu.Schema(getOrderedSchemaColumns(primaryKeys, columnSchemas));
+                                                        config.getCompression(), config.getEncoding());
+        List<ColumnSchema> schemaColumns = getOrderedSchemaColumns(primaryKeys, columnSchemas);
+        org.apache.kudu.Schema kuduSchema = new org.apache.kudu.Schema(schemaColumns);
         CreateTableOptions options = new CreateTableOptions();
-        options.addHashPartitions(primaryKeys, CDCKuduConfig.getBuckets(), CDCKuduConfig.getSeed());
+        options.addHashPartitions(primaryKeys, config.getBuckets(), config.getSeed());
 
         try {
           KuduTable table = client.createTable(tableName, kuduSchema, options);
@@ -263,10 +274,10 @@ public class CDCKudu extends SparkSink<StructuredRecord> {
   /**
    * Converts from CDAP field types to Kudu types.
    *
-   * @param fields CDAP Schema fields
-   * @param columns List of columns that are considered as keys
+   * @param fields    CDAP Schema fields
+   * @param columns   List of columns that are considered as keys
    * @param algorithm Compression algorithm to be used for the column.
-   * @param encoding Encoding type
+   * @param encoding  Encoding type
    * @return List of {@link ColumnSchema}
    * @throws TypeConversionException thrown when CDAP schema cannot be converted to Kudu Schema.
    */
@@ -338,11 +349,11 @@ public class CDCKudu extends SparkSink<StructuredRecord> {
   @Override
   public void run(SparkExecutionPluginContext sparkExecutionPluginContext, JavaRDD<StructuredRecord> javaRDD) {
     javaRDD.foreachPartition(structuredRecordIterator -> {
-      try (KuduClient client = new KuduClient.KuduClientBuilder(CDCKuduConfig.getMasterAddress())
-        .defaultOperationTimeoutMs(CDCKuduConfig.getOperationTimeout())
-        .defaultAdminOperationTimeoutMs(CDCKuduConfig.getAdministrationTimeout())
+      try (KuduClient client = new KuduClient.KuduClientBuilder(config.getMasterAddress())
+        .defaultOperationTimeoutMs(config.getOperationTimeout())
+        .defaultAdminOperationTimeoutMs(config.getAdministrationTimeout())
         .disableStatistics()
-        .bossCount(CDCKuduConfig.getThreads())
+        .bossCount(config.getThreads())
         .build()) {
 
         KuduSession session = client.newSession();

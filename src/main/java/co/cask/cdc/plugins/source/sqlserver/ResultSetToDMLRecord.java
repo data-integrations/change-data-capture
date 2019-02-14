@@ -21,7 +21,8 @@ import java.util.List;
  */
 public class ResultSetToDMLRecord extends AbstractFunction1<ResultSet, StructuredRecord> implements Serializable {
   private static final Schema.Field TABLE_SCHEMA_FIELD = Schema.Field.of("table", Schema.of(Schema.Type.STRING));
-  private static final Schema.Field PRIMARY_KEYS_SCHEMA_FIELD = Schema.Field.of("primary_keys", Schema.arrayOf(Schema.of(Schema.Type.STRING)));
+  private static final Schema.Field PRIMARY_KEYS_SCHEMA_FIELD =
+    Schema.Field.of("primary_keys", Schema.arrayOf(Schema.of(Schema.Type.STRING)));
   private static final Schema.Field OP_TYPE_SCHEMA_FIELD = Schema.Field.of("op_type", Schema.of(Schema.Type.STRING));
   private static final int CHANGE_TABLE_COLUMNS_SIZE = 3;
   private final TableInformation tableInformation;
@@ -61,7 +62,8 @@ public class ResultSetToDMLRecord extends AbstractFunction1<ResultSet, Structure
       int sqlPrecision = metadata.getPrecision(i + CHANGE_TABLE_COLUMNS_SIZE);
       int sqlScale = metadata.getScale(i + CHANGE_TABLE_COLUMNS_SIZE);
       Schema.Field field = changeSchema.getFields().get(i);
-      changeRecordBuilder.set(field.getName(), DBUtils.transformValue(sqlColumnType, sqlPrecision, sqlScale, resultSet, field.getName()));
+      Object value = DBUtils.transformValue(sqlColumnType, sqlPrecision, sqlScale, resultSet, field.getName());
+      changeRecordBuilder.set(field.getName(), value);
     }
     StructuredRecord changeRecord = changeRecordBuilder.build();
     recordBuilder.set("change", changeRecord);

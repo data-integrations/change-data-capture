@@ -21,12 +21,6 @@ import co.cask.cdap.api.data.format.StructuredRecord;
 import co.cask.cdap.api.data.schema.Schema;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import javax.annotation.Nullable;
 import org.apache.hadoop.hbase.HColumnDescriptor;
 import org.apache.hadoop.hbase.HTableDescriptor;
 import org.apache.hadoop.hbase.TableName;
@@ -36,6 +30,13 @@ import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.client.Table;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import javax.annotation.Nullable;
 
 /**
  * Utility methods for dealing with Tables, for CDC use cases.
@@ -49,7 +50,7 @@ public class CDCTableUtil {
   /**
    * Creates a table using the HBase Admin API.
    *
-   * @param admin the HBase Admin to use to create the table
+   * @param admin     the HBase Admin to use to create the table
    * @param tableName the name of the table
    */
   public static void createHBaseTable(Admin admin, String tableName) throws IOException {
@@ -96,9 +97,9 @@ public class CDCTableUtil {
   private static byte[] getRowKey(List<String> primaryKeys, StructuredRecord change) {
     // the primary keys are always in sorted order
     List<String> primaryValues = new ArrayList<>();
-    String [] primaryKeysArray = primaryKeys.toArray(new String[primaryKeys.size()]);
+    String[] primaryKeysArray = primaryKeys.toArray(new String[0]);
     Arrays.sort(primaryKeysArray);
-    for(String primaryKey : primaryKeysArray) {
+    for (String primaryKey : primaryKeysArray) {
       primaryValues.add(change.get(primaryKey).toString());
     }
     String joinedValue = Joiner.on(":").join(primaryValues);

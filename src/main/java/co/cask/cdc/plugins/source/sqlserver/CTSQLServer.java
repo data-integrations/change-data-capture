@@ -35,10 +35,10 @@ import java.util.Map;
 public class CTSQLServer extends StreamingSource<StructuredRecord> {
 
   private static final Logger LOG = LoggerFactory.getLogger(CTSQLServer.class);
-  private final ConnectionConfig conf;
+  private final CTSQLServerConfig conf;
   private final SQLServerConnection dbConnection;
 
-  public CTSQLServer(ConnectionConfig conf) {
+  public CTSQLServer(CTSQLServerConfig conf) {
     this.conf = conf;
     dbConnection = new SQLServerConnection(getConnectionString(), conf.getUsername(), conf.getPassword());
   }
@@ -46,7 +46,8 @@ public class CTSQLServer extends StreamingSource<StructuredRecord> {
   @Override
   public void configurePipeline(PipelineConfigurer pipelineConfigurer) throws IllegalArgumentException {
     if (conf.getUsername() != null && conf.getPassword() != null) {
-      LOG.info("Creating connection with url {}, username {}, password *****", getConnectionString(), conf.getUsername());
+      LOG.info("Creating connection with url {}, username {}, password *****",
+               getConnectionString(), conf.getUsername());
     } else {
       LOG.info("Creating connection with url {}", getConnectionString());
     }
