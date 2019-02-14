@@ -7,7 +7,6 @@ import scala.runtime.AbstractFunction0;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
-import java.util.Properties;
 
 /**
  * A class which can provide a {@link Connection} using {@link SQLServerDriver} which is
@@ -30,10 +29,7 @@ class SQLServerConnection extends AbstractFunction0<Connection> implements Seria
   public Connection apply() {
     try {
       Class.forName(SQLServerDriver.class.getName());
-      Properties properties = new Properties();
-      properties.setProperty("user", userName);
-      properties.setProperty("password", password);
-      return DriverManager.getConnection(connectionUrl, properties);
+      return DriverManager.getConnection(connectionUrl, userName, password);
     } catch (Exception e) {
       throw Throwables.propagate(e);
     }

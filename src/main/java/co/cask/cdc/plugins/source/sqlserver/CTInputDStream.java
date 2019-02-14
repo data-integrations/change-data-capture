@@ -33,74 +33,57 @@ import java.util.Set;
  */
 public class CTInputDStream extends InputDStream<StructuredRecord> {
   private static final Logger LOG = LoggerFactory.getLogger(CTInputDStream.class);
-  private ClassTag<StructuredRecord> tag;
-  private String connection;
-  private String username;
-  private String password;
-  private SQLServerConnection dbConnection;
+  private final ClassTag<StructuredRecord> tag;
+  private final SQLServerConnection dbConnection;
   private long trackingOffset;
 
-  CTInputDStream(StreamingContext ssc, ClassTag<StructuredRecord> tag, String connection, String username,
-                 String password, long trackingOffset) {
+  CTInputDStream(StreamingContext ssc, ClassTag<StructuredRecord> tag, SQLServerConnection dbConnection) {
     super(ssc, tag);
     this.tag = tag;
-    this.connection = connection;
-    this.username = username;
-    this.password = password;
-    this.trackingOffset = trackingOffset;
-  }
-
-  CTInputDStream(StreamingContext ssc, ClassTag<StructuredRecord> tag, String connection, String username,
-                 String password) {
-    super(ssc, tag);
-    this.tag = tag;
-    this.connection = connection;
-    this.username = username;
-    this.password = password;
+    this.dbConnection = dbConnection;
     // if not current tracking version is given initialize it to 0
     this.trackingOffset = 0;
   }
 
   @Override
   public Option<RDD<StructuredRecord>> compute(Time validTime) {
-    // get the table information of all tables which have ct enabled.
-    List<TableInformation> tableInformations = getCTEnabledTables();
+    try (Connection connection = dbConnection.apply()) {
+      // get the table information of all tables which have ct enabled.
+      List<TableInformation> tableInformations = getCTEnabledTables(connection);
 
-    List<RDD<StructuredRecord>> changeRDDs = new LinkedList<>();
+      List<RDD<StructuredRecord>> changeRDDs = new LinkedList<>();
 
-    // Get the schema of tables. We get the schema of tables every microbatch because we want to update  the downstream
-    // dataset with the DDL changes if any.
-    for (TableInformation tableInformation : tableInformations) {
-      changeRDDs.add(getColumnns(tableInformation));
-    }
+      // Get the schema of tables. We get the schema of tables every microbatch because we want to update  the downstream
+      // dataset with the DDL changes if any.
+      for (TableInformation tableInformation : tableInformations) {
+        changeRDDs.add(getColumnns(tableInformation));
+      }
 
-    // retrieve the current highest tracking version
-    long prev = trackingOffset;
-    long cur = 0;
-    try {
-      cur = getCurrentTrackingVersion(dbConnection.apply());
+      // retrieve the current highest tracking version
+      long prev = trackingOffset;
+      long cur = getCurrentTrackingVersion(connection);
+
+      // get all the data changes (DML) for the ct enabled tables till current tracking version
+      for (TableInformation tableInformation : tableInformations) {
+        changeRDDs.add(getChangeData(tableInformation, prev, cur));
+      }
+
+      // union the above ddl (Schema) and dml (data changes) rdd
+      // The union does not maintain any order so its possible that dml changes might be before updated ddl (schema)
+      // changes. Downstream sinks expects to see DDL before DML so order the rdd such that all DDL (schema) changes of
+      // this microbatch appear before DML. Its the caller's responsibility to order it in this way
+      RDD<StructuredRecord> changes = ssc().sc().union(JavaConversions.asScalaBuffer(changeRDDs), tag);
+      // update the tracking version
+      trackingOffset = cur;
+      return Option.apply(changes);
     } catch (SQLException e) {
-      e.printStackTrace();
+      throw Throwables.propagate(e);
     }
-
-    // get all the data changes (DML) for the ct enabled tables till current tracking version
-    for (TableInformation tableInformation : tableInformations) {
-      changeRDDs.add(getChangeData(tableInformation, prev, cur));
-    }
-
-    // union the above ddl (Schema) and dml (data changes) rdd
-    // The union does not maintain any order so its possible that dml changes might be before updated ddl (schema)
-    // changes. Downstream sinks expects to see DDL before DML so order the rdd such that all DDL (schema) changes of
-    // this microbatch appear before DML. Its the caller's responsibility to order it in this way
-    RDD<StructuredRecord> changes = ssc().sc().union(JavaConversions.asScalaBuffer(changeRDDs), tag);
-    // update the tracking version
-    trackingOffset = cur;
-    return Option.apply(changes);
   }
 
   @Override
   public void start() {
-    dbConnection = new SQLServerConnection(connection, username, password);
+    // no-op
   }
 
   @Override
@@ -112,42 +95,41 @@ public class CTInputDStream extends InputDStream<StructuredRecord> {
   private RDD<StructuredRecord> getChangeData(TableInformation tableInformation, long prev, long cur) {
 
     String stmt = String.format("SELECT [CT].[SYS_CHANGE_VERSION], [CT].[SYS_CHANGE_CREATION_VERSION], " +
-                                  "[CT].[SYS_CHANGE_OPERATION], %s, %s FROM [%s] as [CI] RIGHT OUTER JOIN " +
-                                  "CHANGETABLE (CHANGES [%s], %s) as [CT] on %s where [CT]" +
-                                  ".[SYS_CHANGE_VERSION] > ? " +
-                                  "and [CT].[SYS_CHANGE_VERSION] <= ? ORDER BY [CT]" +
-                                  ".[SYS_CHANGE_VERSION]",
-                                getSelectColumns("CT", tableInformation.getPrimaryKeys()),
-                                getSelectColumns("CI", tableInformation.getValueColumnNames()),
-                                tableInformation.getName(), tableInformation.getName(), prev, getJoinCondition
-                                  (tableInformation.getPrimaryKeys()));
+        "[CT].[SYS_CHANGE_OPERATION], %s, %s FROM [%s] as [CI] RIGHT OUTER JOIN " +
+        "CHANGETABLE (CHANGES [%s], %s) as [CT] on %s where [CT]" +
+        ".[SYS_CHANGE_VERSION] > ? " +
+        "and [CT].[SYS_CHANGE_VERSION] <= ? ORDER BY [CT]" +
+        ".[SYS_CHANGE_VERSION]",
+      getSelectColumns("CT", tableInformation.getPrimaryKeys()),
+      getSelectColumns("CI", tableInformation.getValueColumnNames()),
+      tableInformation.getName(), tableInformation.getName(), prev, getJoinCondition
+        (tableInformation.getPrimaryKeys()));
 
-    LOG.info("Querying for change data with statement {}", stmt);
+    LOG.debug("Querying for change data with statement {}", stmt);
 
     //TODO Currently we are not partitioning the data. We should partition it for scalability
     return new JdbcRDD<>(ssc().sc(), dbConnection, stmt, prev, cur, 1,
-                         new ResultSetToDMLRecord(tableInformation),
-                         ClassManifestFactory$.MODULE$.fromClass(StructuredRecord.class));
+      new ResultSetToDMLRecord(tableInformation),
+      ClassManifestFactory$.MODULE$.fromClass(StructuredRecord.class));
   }
 
   private long getCurrentTrackingVersion(Connection connection) throws SQLException {
     ResultSet resultSet = connection.createStatement().executeQuery("SELECT CHANGE_TRACKING_CURRENT_VERSION()");
     long changeVersion = 0;
-    while (resultSet.next()) {
-      LOG.info("Current tracking version is {}", changeVersion);
+    if (resultSet.next()) {
+      LOG.debug("Current tracking version is {}", changeVersion);
       changeVersion = resultSet.getLong(1);
     }
-    connection.close();
     return changeVersion;
   }
 
   private JdbcRDD<StructuredRecord> getColumnns(TableInformation tableInformation) {
     String stmt = String.format("SELECT TOP 1 * FROM [%s].[%s] where ?=?", tableInformation.getSchemaName(),
-                                tableInformation.getName());
+      tableInformation.getName());
 
     return new JdbcRDD<>(ssc().sc(), dbConnection, stmt, 1, 1, 1,
-                         new ResultSetToDDLRecord(tableInformation.getSchemaName(), tableInformation.getName()),
-                         ClassManifestFactory$.MODULE$.fromClass(StructuredRecord.class));
+      new ResultSetToDDLRecord(tableInformation.getSchemaName(), tableInformation.getName()),
+      ClassManifestFactory$.MODULE$.fromClass(StructuredRecord.class));
   }
 
   private Set<String> getColumnns(Connection connection, String schema, String table) throws SQLException {
@@ -180,24 +162,19 @@ public class CTInputDStream extends InputDStream<StructuredRecord> {
     return keyColumns;
   }
 
-  private List<TableInformation> getCTEnabledTables() {
-    Connection connection = dbConnection.apply();
+  private List<TableInformation> getCTEnabledTables(Connection connection) throws SQLException {
     List<TableInformation> tableInformations = new LinkedList<>();
     String stmt = "SELECT s.name as schema_name, t.name AS table_name, ctt.* FROM sys.change_tracking_tables ctt " +
       "INNER JOIN sys.tables t on t.object_id = ctt.object_id INNER JOIN sys.schemas s on s.schema_id = t.schema_id";
-    try {
-      ResultSet rs = connection.createStatement().executeQuery(stmt);
+    try (ResultSet rs = connection.createStatement().executeQuery(stmt)) {
       while (rs.next()) {
         String schemaName = rs.getString("schema_name");
         String tableName = rs.getString("table_name");
         tableInformations.add(new TableInformation(schemaName, tableName,
-                                                   getColumnns(connection, schemaName, tableName),
-                                                   getKeyColumns(connection, schemaName, tableName)));
+          getColumnns(connection, schemaName, tableName),
+          getKeyColumns(connection, schemaName, tableName)));
       }
-      connection.close();
       return tableInformations;
-    } catch (SQLException e) {
-      throw Throwables.propagate(e);
     }
   }
 

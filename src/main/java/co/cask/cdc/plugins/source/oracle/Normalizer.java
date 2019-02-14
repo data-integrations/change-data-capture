@@ -19,7 +19,6 @@ package co.cask.cdc.plugins.source.oracle;
 import co.cask.cdap.api.common.Bytes;
 import co.cask.cdap.api.data.format.StructuredRecord;
 import co.cask.cdap.api.data.schema.Schema;
-import co.cask.cdap.format.StructuredRecordStringConverter;
 import co.cask.cdc.plugins.common.AvroConverter;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
@@ -158,7 +157,6 @@ public class Normalizer {
   }
 
   private List<StructuredRecord> getNormalizedDMLRecord(StructuredRecord record) throws IOException {
-    LOG.info("XXX Record before normalizing is {}", StructuredRecordStringConverter.toJsonString(record));
     List<StructuredRecord> normalizedRecords = new ArrayList<>();
     // This table name contains "." in it already
     String tableName = record.get("table");

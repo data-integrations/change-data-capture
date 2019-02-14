@@ -23,33 +23,20 @@ import co.cask.cdap.api.data.schema.Schema;
 import co.cask.cdap.etl.api.batch.SparkExecutionPluginContext;
 import co.cask.cdap.etl.api.batch.SparkPluginContext;
 import co.cask.cdap.etl.api.batch.SparkSink;
-import co.cask.cdap.format.StructuredRecordStringConverter;
 import com.google.common.collect.Sets;
 import org.apache.kudu.ColumnSchema;
 import org.apache.kudu.Type;
-import org.apache.kudu.client.AlterTableOptions;
-import org.apache.kudu.client.CreateTableOptions;
-import org.apache.kudu.client.Delete;
-import org.apache.kudu.client.Insert;
-import org.apache.kudu.client.KuduClient;
-import org.apache.kudu.client.KuduException;
-import org.apache.kudu.client.KuduSession;
-import org.apache.kudu.client.KuduTable;
-import org.apache.kudu.client.PartialRow;
-import org.apache.kudu.client.SessionConfiguration;
-import org.apache.kudu.client.Update;
+import org.apache.kudu.client.*;
 import org.apache.spark.api.java.JavaRDD;
-import org.apache.spark.api.java.function.VoidFunction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nullable;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
-import javax.annotation.Nullable;
 
 /**
  * Spark compute plugin
@@ -62,7 +49,7 @@ public class CDCKudu extends SparkSink<StructuredRecord> {
   private final Set<String> existingTables = new HashSet<>();
 
   public CDCKudu(CDCKuduConfig config) {
-    this.CDCKuduConfig = config;
+    CDCKuduConfig = config;
   }
 
   private boolean updateKuduTableSchema(KuduClient client, StructuredRecord input) throws Exception {
@@ -109,7 +96,7 @@ public class CDCKudu extends SparkSink<StructuredRecord> {
 
     for (String column : columnsToAdd) {
       Schema.Field newField = newSchema.getField(column);
-      Type kuduType = toKuduType(column, newField.getSchema(), new HashSet<String>());
+      Type kuduType = toKuduType(column, newField.getSchema(), new HashSet<>());
       alterTableOptions.addNullableColumn(column, kuduType);
       LOG.info("Column {} of type {} will be added to the Kudu table {}.", column, kuduType, table.getName());
     }
@@ -130,7 +117,7 @@ public class CDCKudu extends SparkSink<StructuredRecord> {
   }
 
   private void updateKuduTableRecord(KuduClient client, KuduSession session, StructuredRecord input) throws Exception {
-    String tableName = getTableName((String) input.get("table"));
+    String tableName = getTableName(input.get("table"));
     String operationType = input.get("op_type");
     List<String> primaryKeys = input.get("primary_keys");
     StructuredRecord change = input.get("change");
@@ -173,7 +160,7 @@ public class CDCKudu extends SparkSink<StructuredRecord> {
     }
   }
 
-  private void addColumnDataBasedOnType(PartialRow row, co.cask.cdap.api.data.schema.Schema.Field field,
+  private void addColumnDataBasedOnType(PartialRow row, Schema.Field field,
                                         @Nullable Object value, Set<String> primaryKeys)
     throws TypeConversionException {
     String columnName = field.getName();
@@ -283,12 +270,12 @@ public class CDCKudu extends SparkSink<StructuredRecord> {
    * @return List of {@link ColumnSchema}
    * @throws TypeConversionException thrown when CDAP schema cannot be converted to Kudu Schema.
    */
-  private List<ColumnSchema> toKuduSchema(List<co.cask.cdap.api.data.schema.Schema.Field> fields, Set<String> columns,
+  private List<ColumnSchema> toKuduSchema(List<Schema.Field> fields, Set<String> columns,
                                           ColumnSchema.CompressionAlgorithm algorithm,
                                           ColumnSchema.Encoding encoding)
     throws TypeConversionException {
     List<ColumnSchema> columnSchemas = new ArrayList<>();
-    for (co.cask.cdap.api.data.schema.Schema.Field field : fields) {
+    for (Schema.Field field : fields) {
       String name = field.getName();
       Type kuduType = toKuduType(name, field.getSchema(), columns);
       ColumnSchema.ColumnSchemaBuilder builder = new ColumnSchema.ColumnSchemaBuilder(name, kuduType);
@@ -306,15 +293,15 @@ public class CDCKudu extends SparkSink<StructuredRecord> {
   }
 
   /**
-   * Convert from {@link co.cask.cdap.api.data.schema.Schema.Type} to {@link Type}.
+   * Convert from {@link Schema.Type} to {@link Type}.
    *
    * @param schema {@link StructuredRecord} field schema.
    * @return {@link Type} Kudu type.
    * @throws TypeConversionException thrown when can't be converted.
    */
-  private Type toKuduType(String name, co.cask.cdap.api.data.schema.Schema schema, Set<String> primaryKeys)
+  private Type toKuduType(String name, Schema schema, Set<String> primaryKeys)
     throws TypeConversionException {
-    co.cask.cdap.api.data.schema.Schema.Type type = schema.getType();
+    Schema.Type type = schema.getType();
 
     if (primaryKeys.contains(name)) {
       // primary key cannot be BOOL, FLOAT, or DOUBLE in Kudu
@@ -324,21 +311,21 @@ public class CDCKudu extends SparkSink<StructuredRecord> {
       }
     }
 
-    if (type == co.cask.cdap.api.data.schema.Schema.Type.STRING) {
+    if (type == Schema.Type.STRING) {
       return Type.STRING;
-    } else if (type == co.cask.cdap.api.data.schema.Schema.Type.INT) {
+    } else if (type == Schema.Type.INT) {
       return Type.INT32;
-    } else if (type == co.cask.cdap.api.data.schema.Schema.Type.LONG) {
+    } else if (type == Schema.Type.LONG) {
       return Type.INT64;
-    } else if (type == co.cask.cdap.api.data.schema.Schema.Type.BYTES) {
+    } else if (type == Schema.Type.BYTES) {
       return Type.BINARY;
-    } else if (type == co.cask.cdap.api.data.schema.Schema.Type.DOUBLE) {
+    } else if (type == Schema.Type.DOUBLE) {
       return Type.DOUBLE;
-    } else if (type == co.cask.cdap.api.data.schema.Schema.Type.FLOAT) {
+    } else if (type == Schema.Type.FLOAT) {
       return Type.FLOAT;
-    } else if (type == co.cask.cdap.api.data.schema.Schema.Type.BOOLEAN) {
+    } else if (type == Schema.Type.BOOLEAN) {
       return Type.BOOL;
-    } else if (type == co.cask.cdap.api.data.schema.Schema.Type.UNION) { // Recursively drill down into the non-nullable type.
+    } else if (type == Schema.Type.UNION) { // Recursively drill down into the non-nullable type.
       return toKuduType(name, schema.getNonNullable(), primaryKeys);
     } else {
       throw new TypeConversionException(
@@ -349,34 +336,29 @@ public class CDCKudu extends SparkSink<StructuredRecord> {
   }
 
   @Override
-  public void run(SparkExecutionPluginContext sparkExecutionPluginContext, JavaRDD<StructuredRecord> javaRDD) throws Exception {
+  public void run(SparkExecutionPluginContext sparkExecutionPluginContext, JavaRDD<StructuredRecord> javaRDD) {
+    javaRDD.foreachPartition(structuredRecordIterator -> {
+      try (KuduClient client = new KuduClient.KuduClientBuilder(CDCKuduConfig.getMasterAddress())
+        .defaultOperationTimeoutMs(CDCKuduConfig.getOperationTimeout())
+        .defaultAdminOperationTimeoutMs(CDCKuduConfig.getAdministrationTimeout())
+        .disableStatistics()
+        .bossCount(CDCKuduConfig.getThreads())
+        .build()) {
 
-    javaRDD.foreachPartition(new VoidFunction<Iterator<StructuredRecord>>() {
-      @Override
-      public void call(Iterator<StructuredRecord> structuredRecordIterator) throws Exception {
-        try (KuduClient client = new KuduClient.KuduClientBuilder(CDCKuduConfig.getMasterAddress())
-          .defaultOperationTimeoutMs(CDCKuduConfig.getOperationTimeout())
-          .defaultAdminOperationTimeoutMs(CDCKuduConfig.getAdministrationTimeout())
-          .disableStatistics()
-          .bossCount(CDCKuduConfig.getThreads())
-          .build()) {
+        KuduSession session = client.newSession();
+        // Buffer 100 operations
+        session.setMutationBufferSpace(100);
+        session.setFlushMode(SessionConfiguration.FlushMode.AUTO_FLUSH_BACKGROUND);
 
-          KuduSession session = client.newSession();
-          // Buffer 100 operations
-          session.setMutationBufferSpace(100);
-          session.setFlushMode(SessionConfiguration.FlushMode.AUTO_FLUSH_BACKGROUND);
-
-          while (structuredRecordIterator.hasNext()) {
-            StructuredRecord input = structuredRecordIterator.next();
-            LOG.debug("Received StructuredRecord in Kudu {}", StructuredRecordStringConverter.toJsonString(input));
-            if (input.getSchema().getRecordName().equals("DDLRecord")) {
-              if (updateKuduTableSchema(client, input)) {
-                // Schema for the table is updated. Flush the session now
-                session.flush();
-              }
-            } else {
-              updateKuduTableRecord(client, session, input);
+        while (structuredRecordIterator.hasNext()) {
+          StructuredRecord input = structuredRecordIterator.next();
+          if ("DDLRecord".equals(input.getSchema().getRecordName())) {
+            if (updateKuduTableSchema(client, input)) {
+              // Schema for the table is updated. Flush the session now
+              session.flush();
             }
+          } else {
+            updateKuduTableRecord(client, session, input);
           }
         }
       }

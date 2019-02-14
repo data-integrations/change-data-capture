@@ -27,37 +27,24 @@ import co.cask.cdap.etl.api.streaming.StreamingSource;
 import kafka.api.OffsetRequest;
 import kafka.api.PartitionOffsetRequestInfo;
 import kafka.common.TopicAndPartition;
-import kafka.javaapi.OffsetResponse;
-import kafka.javaapi.PartitionMetadata;
-import kafka.javaapi.TopicMetadata;
-import kafka.javaapi.TopicMetadataRequest;
-import kafka.javaapi.TopicMetadataResponse;
+import kafka.javaapi.*;
 import kafka.javaapi.consumer.SimpleConsumer;
 import kafka.message.MessageAndMetadata;
 import kafka.serializer.DefaultDecoder;
 import org.apache.avro.SchemaNormalization;
-import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.Optional;
-import org.apache.spark.api.java.function.FlatMapFunction;
-import org.apache.spark.api.java.function.Function;
 import org.apache.spark.api.java.function.Function3;
-import org.apache.spark.api.java.function.PairFunction;
 import org.apache.spark.streaming.State;
 import org.apache.spark.streaming.StateSpec;
 import org.apache.spark.streaming.api.java.JavaDStream;
+import org.apache.spark.streaming.api.java.JavaInputDStream;
 import org.apache.spark.streaming.kafka.KafkaUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import scala.Tuple2;
 
-import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 /**
  * Streaming source for reading from Golden Gate Kafka topic.
@@ -83,6 +70,8 @@ public class GoldenGateKafka extends ReferenceStreamingSource<StructuredRecord> 
                                                            Schema.Field.of("message", Schema.of(Schema.Type.BYTES)),
                                                            Schema.Field.of("staterecord", STATE_SCHEMA));
 
+  private static final Normalizer NORMALIZER = new Normalizer();
+
   private final GoldenGateKafkaConfig conf;
 
 
@@ -99,8 +88,12 @@ public class GoldenGateKafka extends ReferenceStreamingSource<StructuredRecord> 
 
     // Make sure that Golden Gate kafka topic only have single partition
     SimpleConsumer consumer = new SimpleConsumer(conf.getHost(), conf.getPort(), 20 * 1000, 128 * 1024,
-                                                 "partitionLookup");
-    getPartitionId(consumer);
+      "partitionLookup");
+    try {
+      getPartitionId(consumer);
+    } finally {
+      consumer.close();
+    }
 
     if (conf.getMaxRatePerPartition() > 0) {
       Map<String, String> pipelineProperties = new HashMap<>();
@@ -113,12 +106,28 @@ public class GoldenGateKafka extends ReferenceStreamingSource<StructuredRecord> 
   public JavaDStream<StructuredRecord> getStream(StreamingContext context) throws Exception {
     context.registerLineage(conf.referenceName);
 
+    SimpleConsumer consumer = new SimpleConsumer(conf.getHost(), conf.getPort(), 20 * 1000, 128 * 1024,
+      "partitionLookup");
+    Map<TopicAndPartition, Long> offsets;
+    try {
+      offsets = loadOffsets(consumer);
+    } finally {
+      consumer.close();
+    }
+
+    LOG.info("Using initial offsets {}", offsets);
     Map<String, String> kafkaParams = new HashMap<>();
     kafkaParams.put("metadata.broker.list", conf.getBroker());
+    JavaInputDStream<StructuredRecord> directStream = KafkaUtils.createDirectStream(
+      context.getSparkStreamingContext(), byte[].class, byte[].class, DefaultDecoder.class, DefaultDecoder.class,
+      StructuredRecord.class, kafkaParams, offsets, this::kafkaMessageToRecord);
+    return directStream
+      .mapToPair(record -> new Tuple2<>("", record))
+      .mapWithState(StateSpec.function(schemaStateFunction()))
+      .flatMap(record -> NORMALIZER.transform(record).iterator());
+  }
 
-    SimpleConsumer consumer = new SimpleConsumer(conf.getHost(), conf.getPort(), 20 * 1000, 128 * 1024,
-                                                 "partitionLookup");
-
+  private Map<TopicAndPartition, Long> loadOffsets(SimpleConsumer consumer) {
     // KafkaUtils doesn't understand -1 and -2 as latest offset and smallest offset.
     // so we have to replace them with the actual smallest and latest
     String topicName = conf.getTopic();
@@ -144,103 +153,16 @@ public class GoldenGateKafka extends ReferenceStreamingSource<StructuredRecord> 
 
     Map<TopicAndPartition, Long> offsets = new HashMap<>();
     offsets.put(topicAndPartition, response.offsets(topicName, partitionId)[0]);
-
-    LOG.info("Using initial offsets {}", offsets);
-
-    Function3<String, Optional<StructuredRecord>, State<Map<Long, String>>, StructuredRecord> mapFunction
-      = new Function3<String, Optional<StructuredRecord>, State<Map<Long, String>>, StructuredRecord>() {
-      @Override
-      public StructuredRecord call(String v1, Optional<StructuredRecord> value, State<Map<Long, String>> state)
-        throws Exception {
-        if (state.exists()) {
-          LOG.debug("Current schema mapping is {}", state.get());
-        }
-
-        StructuredRecord input = value.get();
-        Object message = input.get("message");
-
-        byte[] messageBytes;
-        if (message instanceof ByteBuffer) {
-          ByteBuffer bb = (ByteBuffer) message;
-          messageBytes = new byte[bb.remaining()];
-          bb.mark();
-          bb.get(messageBytes);
-          bb.reset();
-        } else {
-          messageBytes = (byte[]) message;
-        }
-
-        String messageBody = new String(messageBytes, StandardCharsets.UTF_8);
-
-        if (messageBody.contains("generic_wrapper") && messageBody.contains("oracle.goldengate")) {
-          StructuredRecord.Builder builder = StructuredRecord.builder(GENERIC_WRAPPER_SCHEMA_MESSAGE);
-          builder.set("message", message);
-          return builder.build();
-        }
-
-        if (messageBody.contains("\"type\" : \"record\"")) {
-          org.apache.avro.Schema avroSchema = new org.apache.avro.Schema.Parser().parse(messageBody);
-          long schemaFingerPrint = SchemaNormalization.parsingFingerprint64(avroSchema);
-          Map<Long, String> newState;
-          if (state.exists()) {
-            newState = state.get();
-          } else {
-            newState = new HashMap<>();
-          }
-          newState.put(schemaFingerPrint, messageBody);
-          state.update(newState);
-          LOG.debug("Schema mapping updated to {}", state.get());
-
-          StructuredRecord.Builder builder = StructuredRecord.builder(DDL_SCHEMA_MESSAGE);
-          builder.set("message", message);
-          return builder.build();
-        }
-
-        StructuredRecord.Builder stateBuilder = StructuredRecord.builder(STATE_SCHEMA);
-        stateBuilder.set("data", state.get());
-
-        StructuredRecord.Builder builder = StructuredRecord.builder(DML_SCHEMA);
-        builder.set("message", message);
-        builder.set("staterecord", stateBuilder.build());
-        return builder.build();
-      }
-    };
-
-    return KafkaUtils.createDirectStream(
-      context.getSparkStreamingContext(), byte[].class, byte[].class, DefaultDecoder.class, DefaultDecoder.class,
-      MessageAndMetadata.class, kafkaParams, offsets,
-      new Function<MessageAndMetadata<byte[], byte[]>, MessageAndMetadata>() {
-        @Override
-        public MessageAndMetadata call(MessageAndMetadata<byte[], byte[]> in) throws Exception {
-          return in;
-        }
-      }).transform(new Function<JavaRDD<MessageAndMetadata>, JavaRDD<StructuredRecord>>() {
-      @Override
-      public JavaRDD<StructuredRecord> call(JavaRDD<MessageAndMetadata> inputs) throws Exception {
-        return inputs.map(new Function<MessageAndMetadata, StructuredRecord>() {
-          @Override
-          public StructuredRecord call(MessageAndMetadata input) throws Exception {
-            StructuredRecord.Builder builder = StructuredRecord.builder(TRANSFORMED_MESSAGE);
-            builder.set("message", input.message());
-            return builder.build();
-          }
-        });
-      }
-    }).mapToPair(new PairFunction<StructuredRecord, String, StructuredRecord>() {
-      @Override
-      public Tuple2<String, StructuredRecord> call(StructuredRecord record) throws Exception {
-        return new Tuple2<>("", record);
-      }
-    }).mapWithState(StateSpec.function(mapFunction)).flatMap(new FlatMapFunction<StructuredRecord, StructuredRecord>() {
-      @Override
-      public Iterator<StructuredRecord> call(StructuredRecord record) throws Exception {
-        Normalizer normalizer = new Normalizer();
-        return normalizer.transform(record).iterator();
-      }
-    });
+    return offsets;
   }
 
-  private int getPartitionId(kafka.javaapi.consumer.SimpleConsumer consumer) {
+  private StructuredRecord kafkaMessageToRecord(MessageAndMetadata<byte[], byte[]> messageAndMetadata) {
+    return StructuredRecord.builder(TRANSFORMED_MESSAGE)
+      .set("message", messageAndMetadata.message())
+      .build();
+  }
+
+  private int getPartitionId(SimpleConsumer consumer) {
     Set<Integer> partitions = new HashSet<>();
     TopicMetadataRequest topicMetadataRequest = new TopicMetadataRequest(Collections.singletonList(conf.getTopic()));
     TopicMetadataResponse response = consumer.send(topicMetadataRequest);
@@ -253,9 +175,51 @@ public class GoldenGateKafka extends ReferenceStreamingSource<StructuredRecord> 
 
     if (partitions.size() > 1) {
       throw new IllegalArgumentException(String.format("Topic '%s' should only have one partition." +
-                                                         " Found '%s' partitions.", conf.getTopic(),
-                                                       partitions.size()));
+        " Found '%s' partitions.", conf.getTopic(), partitions.size()));
     }
     return partitions.iterator().next();
+  }
+
+  private static Function3<String, Optional<StructuredRecord>, State<Map<Long, String>>, StructuredRecord>
+  schemaStateFunction() {
+    return (key, value, state) -> {
+      StructuredRecord input = value.get();
+      Object message = input.get("message");
+
+      byte[] messageBytes = BinaryMessages.getBytesFromBinaryMessage(message);
+      String messageBody = new String(messageBytes, StandardCharsets.UTF_8);
+
+      if (messageBody.contains("generic_wrapper") && messageBody.contains("oracle.goldengate")) {
+        StructuredRecord.Builder builder = StructuredRecord.builder(GENERIC_WRAPPER_SCHEMA_MESSAGE);
+        builder.set("message", message);
+        return builder.build();
+      }
+
+      if (messageBody.contains("\"type\" : \"record\"")) {
+        org.apache.avro.Schema avroSchema = new org.apache.avro.Schema.Parser().parse(messageBody);
+        long schemaFingerPrint = SchemaNormalization.parsingFingerprint64(avroSchema);
+        Map<Long, String> newState;
+        if (state.exists()) {
+          newState = state.get();
+        } else {
+          newState = new HashMap<>();
+        }
+        newState.put(schemaFingerPrint, messageBody);
+        state.update(newState);
+        LOG.debug("Schema mapping updated to {}", state.get());
+
+        StructuredRecord.Builder builder = StructuredRecord.builder(DDL_SCHEMA_MESSAGE);
+        builder.set("message", message);
+        return builder.build();
+      }
+
+      StructuredRecord.Builder stateBuilder = StructuredRecord.builder(STATE_SCHEMA);
+      stateBuilder.set("data", state.get());
+
+      StructuredRecord.Builder builder = StructuredRecord.builder(DML_SCHEMA);
+      builder.set("message", message);
+      builder.set("staterecord", stateBuilder.build());
+      return builder.build();
+    };
   }
 }

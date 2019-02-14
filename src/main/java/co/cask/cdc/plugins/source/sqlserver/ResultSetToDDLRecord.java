@@ -4,6 +4,7 @@ import co.cask.cdap.api.data.format.StructuredRecord;
 import co.cask.cdap.api.data.schema.Schema;
 import co.cask.hydrator.plugin.DBUtils;
 import com.google.common.base.Joiner;
+import com.google.common.base.Throwables;
 import scala.Serializable;
 import scala.runtime.AbstractFunction1;
 
@@ -33,7 +34,7 @@ public class ResultSetToDDLRecord extends AbstractFunction1<ResultSet, Structure
     try {
       return transform(row);
     } catch (SQLException e) {
-      throw new RuntimeException(e);
+      throw Throwables.propagate(e);
     }
   }
 

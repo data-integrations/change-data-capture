@@ -18,42 +18,24 @@ package co.cask.cdc.plugins.sink;
 
 import co.cask.cdap.api.annotation.Name;
 import co.cask.cdap.api.annotation.Plugin;
-import co.cask.cdap.api.common.Bytes;
 import co.cask.cdap.api.data.format.StructuredRecord;
-import co.cask.cdap.api.data.schema.Schema;
 import co.cask.cdap.etl.api.batch.SparkExecutionPluginContext;
 import co.cask.cdap.etl.api.batch.SparkPluginContext;
 import co.cask.cdap.etl.api.batch.SparkSink;
-import co.cask.cdap.format.StructuredRecordStringConverter;
+import co.cask.cdc.plugins.common.SparkConfigs;
 import co.cask.hydrator.common.ReferencePluginConfig;
 import co.cask.hydrator.common.batch.JobUtils;
-import com.google.common.base.Joiner;
-import com.google.common.base.Preconditions;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.hbase.HColumnDescriptor;
-import org.apache.hadoop.hbase.HTableDescriptor;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Admin;
 import org.apache.hadoop.hbase.client.Connection;
 import org.apache.hadoop.hbase.client.ConnectionFactory;
-import org.apache.hadoop.hbase.client.Delete;
-import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.client.Table;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.spark.api.java.JavaRDD;
-import org.apache.spark.api.java.function.VoidFunction;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
-import javax.annotation.Nullable;
 
 /**
  * HBase sink for CDC
@@ -61,7 +43,6 @@ import javax.annotation.Nullable;
 @Plugin(type = SparkSink.PLUGIN_TYPE)
 @Name("CDCHBase")
 public class CDCHBase extends SparkSink<StructuredRecord> {
-  private static final Logger LOG = LoggerFactory.getLogger(CDCHBase.class);
   private final CDCHBaseConfig config;
 
   public CDCHBase(CDCHBaseConfig config) {
@@ -73,58 +54,47 @@ public class CDCHBase extends SparkSink<StructuredRecord> {
 
   @Override
   public void run(SparkExecutionPluginContext context, JavaRDD<StructuredRecord> javaRDD) throws Exception {
-    // Get the hadoop configurations and passed it as a Map to the closure
-    Iterator<Map.Entry<String, String>> iterator = javaRDD.context().hadoopConfiguration().iterator();
-    final Map<String, String> configs = new HashMap<>();
-    while (iterator.hasNext()) {
-      Map.Entry<String, String> next = iterator.next();
-      configs.put(next.getKey(), next.getValue());
-    }
-
+    Map<String, String> hadoopConfigs = SparkConfigs.getHadoopConfigs(javaRDD);
     // maps data sets to each block of computing resources
-    javaRDD.foreachPartition(new VoidFunction<Iterator<StructuredRecord>>() {
-
-      @Override
-      public void call(Iterator<StructuredRecord> structuredRecordIterator) throws Exception {
-
-        Job job;
-        ClassLoader oldClassLoader = Thread.currentThread().getContextClassLoader();
-        // Switch the context classloader to plugin class' classloader (PluginClassLoader) so that
-        // when Job/Configuration is created, it uses PluginClassLoader to load resources (hbase-default.xml)
-        // which is present in the plugin jar and is not visible in the CombineClassLoader (which is what oldClassLoader
-        // points to).
-        Thread.currentThread().setContextClassLoader(getClass().getClassLoader());
-        try {
-          job = JobUtils.createInstance();
-        } finally {
-          // Switch back to the original
-          Thread.currentThread().setContextClassLoader(oldClassLoader);
-        }
-
-        Configuration conf = job.getConfiguration();
-
-        for(Map.Entry<String, String> configEntry : configs.entrySet()) {
-          conf.set(configEntry.getKey(), configEntry.getValue());
-        }
-
-        try (Connection connection = ConnectionFactory.createConnection(conf);
-             Admin hBaseAdmin = connection.getAdmin()) {
-          while (structuredRecordIterator.hasNext()) {
-            StructuredRecord input = structuredRecordIterator.next();
-            LOG.debug("Received StructuredRecord in Kudu {}", StructuredRecordStringConverter.toJsonString(input));
-            String tableName = getTableName((String) input.get("table"));
-            if (input.getSchema().getRecordName().equals("DDLRecord")) {
-              CDCTableUtil.createHBaseTable(hBaseAdmin, tableName);
-            } else {
-              Table table = hBaseAdmin.getConnection().getTable(TableName.valueOf(tableName));
-              CDCTableUtil.updateHBaseTable(table, input);
-            }
+    javaRDD.foreachPartition(structuredRecordIterator -> {
+      try (Connection conn = getConnection(hadoopConfigs);
+           Admin hBaseAdmin = conn.getAdmin()) {
+        while (structuredRecordIterator.hasNext()) {
+          StructuredRecord input = structuredRecordIterator.next();
+          String tableName = getTableName(input.get("table"));
+          if ("DDLRecord".equals(input.getSchema().getRecordName())) {
+            CDCTableUtil.createHBaseTable(hBaseAdmin, tableName);
+          } else {
+            Table table = hBaseAdmin.getConnection().getTable(TableName.valueOf(tableName));
+            CDCTableUtil.updateHBaseTable(table, input);
           }
         }
       }
     });
   }
 
+  private Connection getConnection(Map<String, String> hadoopConfigs) throws IOException {
+    ClassLoader oldClassLoader = Thread.currentThread().getContextClassLoader();
+    // Switch the context classloader to plugin class' classloader (PluginClassLoader) so that
+    // when Job/Configuration is created, it uses PluginClassLoader to load resources (hbase-default.xml)
+    // which is present in the plugin jar and is not visible in the CombineClassLoader (which is what oldClassLoader
+    // points to).
+    Thread.currentThread().setContextClassLoader(getClass().getClassLoader());
+    Job job;
+    try {
+      job = JobUtils.createInstance();
+    } finally {
+      // Switch back to the original
+      Thread.currentThread().setContextClassLoader(oldClassLoader);
+    }
+    Configuration conf = job.getConfiguration();
+
+    for(Map.Entry<String, String> configEntry : hadoopConfigs.entrySet()) {
+      conf.set(configEntry.getKey(), configEntry.getValue());
+    }
+
+    return ConnectionFactory.createConnection(conf);
+  }
 
   public static String getTableName(String namespacedTableName) {
     return namespacedTableName.split("\\.")[1];

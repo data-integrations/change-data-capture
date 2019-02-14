@@ -26,34 +26,19 @@ import org.apache.avro.generic.GenericEnumSymbol;
 import org.apache.avro.generic.GenericFixed;
 import org.apache.avro.generic.GenericRecord;
 
-import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 import javax.annotation.Nullable;
+import java.nio.ByteBuffer;
+import java.util.*;
 
 /**
  * Helper class to convert Avro types into CDAP types
  */
 public final class AvroConverter {
 
-  private static final Function<org.apache.avro.Schema, Schema> SCHEMA_CONVERTER =
-    new Function<org.apache.avro.Schema, Schema>() {
-      @Override
-      public Schema apply(org.apache.avro.Schema input) {
-        return fromAvroSchema(input);
-      }
-    };
+  private static final Function<org.apache.avro.Schema, Schema> SCHEMA_CONVERTER = AvroConverter::fromAvroSchema;
 
   private static final Function<org.apache.avro.Schema.Field, Schema.Field> FIELD_CONVERTER =
-    new Function<org.apache.avro.Schema.Field, Schema.Field>() {
-      @Override
-      public Schema.Field apply(org.apache.avro.Schema.Field input) {
-        return Schema.Field.of(input.name(), SCHEMA_CONVERTER.apply(input.schema()));
-      }
-    };
+    input -> Schema.Field.of(input.name(), SCHEMA_CONVERTER.apply(input.schema()));
 
 
   /**
@@ -145,7 +130,7 @@ public final class AvroConverter {
         return value.toString();
       case ARRAY:
         Preconditions.checkArgument(avroSchema.getType() == org.apache.avro.Schema.Type.ARRAY);
-        return convertAvroArray(schema.getComponentSchema(), avroSchema.getElementType(), (GenericArray) value);
+        return convertAvroArray(schema.getComponentSchema(), avroSchema.getElementType(), (GenericArray<?>) value);
       case MAP:
         Preconditions.checkArgument(avroSchema.getType() == org.apache.avro.Schema.Type.MAP);
         Preconditions.checkArgument(schema.getMapSchema().getKey().getType() == Schema.Type.STRING);
