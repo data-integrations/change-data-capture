@@ -4,6 +4,8 @@ import co.cask.cdap.api.annotation.Description;
 import co.cask.cdap.api.annotation.Macro;
 import co.cask.cdap.api.annotation.Name;
 import co.cask.cdap.api.plugin.PluginConfig;
+import co.cask.cdap.etl.api.validation.InvalidConfigPropertyException;
+import co.cask.hydrator.common.IdUtils;
 import co.cask.hydrator.common.ReferencePluginConfig;
 
 import javax.annotation.Nullable;
@@ -13,41 +15,40 @@ import javax.annotation.Nullable;
  */
 public class CTSQLServerConfig extends ReferencePluginConfig {
 
-
-  public static final String HOST_NAME = "hostname";
-  public static final String PORT = "port";
-  public static final String USERNAME = "username";
-  public static final String PASSWORD = "password";
-  public static final String DATABASE_NAME = "dbname";
+  private static final String HOST_NAME = "hostname";
+  private static final String PORT = "port";
+  private static final String USERNAME = "username";
+  private static final String PASSWORD = "password";
+  private static final String DATABASE_NAME = "dbname";
 
   @Name(HOST_NAME)
   @Description("SQL Server hostname. Ex: mysqlsever.net")
   @Macro
-  public String hostname;
+  private String hostname;
 
   @Name(PORT)
   @Description("SQL Server port. Defaults to 1433")
   @Macro
-  public int port;
+  private int port;
 
   @Name(DATABASE_NAME)
   @Description("SQL Server database name. Note: CT must be enabled on the database for change tracking.")
   @Macro
-  public String dbName;
+  private String dbName;
 
   @Name(USERNAME)
   @Description("User to use to connect to the specified database. Required for databases that " +
     "need authentication. Optional for databases that do not require authentication.")
   @Nullable
   @Macro
-  public String username;
+  private String username;
 
   @Name(PASSWORD)
   @Description("Password to use to connect to the specified database. Required for databases that " +
     "need authentication. Optional for databases that do not require authentication.")
   @Nullable
   @Macro
-  public String password;
+  private String password;
 
   public CTSQLServerConfig() {
     super("");
@@ -86,5 +87,12 @@ public class CTSQLServerConfig extends ReferencePluginConfig {
   @Nullable
   public String getPassword() {
     return password;
+  }
+
+  public void validate() {
+    IdUtils.validateId(referenceName);
+    if (!containsMacro(PORT) && (port < 0 || port > 65535)) {
+      throw new InvalidConfigPropertyException("Port number should be in range 0-65535", PORT);
+    }
   }
 }

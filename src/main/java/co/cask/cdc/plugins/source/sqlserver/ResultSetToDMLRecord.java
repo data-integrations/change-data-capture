@@ -2,87 +2,78 @@ package co.cask.cdc.plugins.source.sqlserver;
 
 import co.cask.cdap.api.data.format.StructuredRecord;
 import co.cask.cdap.api.data.schema.Schema;
+import co.cask.cdc.plugins.common.Schemes;
 import co.cask.hydrator.plugin.DBUtils;
 import com.google.common.base.Joiner;
-import com.google.common.base.Throwables;
 import com.google.common.collect.Lists;
-import scala.Serializable;
-import scala.runtime.AbstractFunction1;
+import org.apache.spark.api.java.function.Function;
 
+import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
-import java.util.ArrayList;
+import java.sql.Time;
+import java.sql.Timestamp;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * A serializable class to allow invoking {@link scala.Function1} from Java. The function converts {@link ResultSet}
  * to {@link StructuredRecord} for dml records
  */
-public class ResultSetToDMLRecord extends AbstractFunction1<ResultSet, StructuredRecord> implements Serializable {
-  private static final Schema.Field TABLE_SCHEMA_FIELD = Schema.Field.of("table", Schema.of(Schema.Type.STRING));
-  private static final Schema.Field PRIMARY_KEYS_SCHEMA_FIELD =
-    Schema.Field.of("primary_keys", Schema.arrayOf(Schema.of(Schema.Type.STRING)));
-  private static final Schema.Field OP_TYPE_SCHEMA_FIELD = Schema.Field.of("op_type", Schema.of(Schema.Type.STRING));
+public class ResultSetToDMLRecord implements Function<ResultSet, StructuredRecord> {
   private static final int CHANGE_TABLE_COLUMNS_SIZE = 3;
   private final TableInformation tableInformation;
-
-  static final String RECORD_NAME = "DMLRecord";
 
   ResultSetToDMLRecord(TableInformation tableInformation) {
     this.tableInformation = tableInformation;
   }
 
-  public StructuredRecord apply(ResultSet row) {
-    try {
-      return resultSetToStructureRecord(row);
-    } catch (SQLException e) {
-      throw Throwables.propagate(e);
-    }
+  @Override
+  public StructuredRecord call(ResultSet row) throws SQLException {
+    Schema changeSchema = getChangeSchema(row);
+    return StructuredRecord.builder(Schemes.DML_SCHEMA)
+      .set(Schemes.TABLE_FIELD, Joiner.on(".").join(tableInformation.getSchemaName(), tableInformation.getName()))
+      .set(Schemes.PRIMARY_KEYS_FIELD, Lists.newArrayList(tableInformation.getPrimaryKeys()))
+      .set(Schemes.OP_TYPE_FIELD, row.getString("SYS_CHANGE_OPERATION"))
+      .set(Schemes.UPDATE_SCHEMA_FIELD, changeSchema.toString())
+      .set(Schemes.UPDATE_VALUES_FIELD, getChangeData(row, changeSchema))
+      .build();
   }
 
-  private StructuredRecord resultSetToStructureRecord(ResultSet resultSet) throws SQLException {
-    Schema changeSchema = getChangeSchema(resultSet);
-    Schema dmlSchema = getDMLSchema(changeSchema);
-
-    StructuredRecord.Builder recordBuilder = StructuredRecord.builder(dmlSchema);
-    recordBuilder.set(TABLE_SCHEMA_FIELD.getName(), Joiner.on(".").join(tableInformation.getSchemaName(),
-                                                                        tableInformation.getName()));
-    recordBuilder.set(PRIMARY_KEYS_SCHEMA_FIELD.getName(), Lists.newArrayList(tableInformation.getPrimaryKeys()));
-    recordBuilder.set(OP_TYPE_SCHEMA_FIELD.getName(), resultSet.getString("SYS_CHANGE_OPERATION"));
-    return getChangeData(resultSet, changeSchema, recordBuilder);
-  }
-
-  private StructuredRecord getChangeData(ResultSet resultSet, Schema changeSchema,
-                                         StructuredRecord.Builder recordBuilder) throws SQLException {
-    StructuredRecord.Builder changeRecordBuilder = StructuredRecord.builder(changeSchema);
+  private static Map<String, Object> getChangeData(ResultSet resultSet, Schema changeSchema) throws SQLException {
     ResultSetMetaData metadata = resultSet.getMetaData();
+    Map<String, Object> changes = new HashMap<>();
     for (int i = 0; i < changeSchema.getFields().size(); i++) {
-      int sqlColumnType = metadata.getColumnType(i + CHANGE_TABLE_COLUMNS_SIZE);
-      int sqlPrecision = metadata.getPrecision(i + CHANGE_TABLE_COLUMNS_SIZE);
-      int sqlScale = metadata.getScale(i + CHANGE_TABLE_COLUMNS_SIZE);
+      int column = i + CHANGE_TABLE_COLUMNS_SIZE;
+      int sqlType = metadata.getColumnType(column);
+      int sqlPrecision = metadata.getPrecision(column);
+      int sqlScale = metadata.getScale(column);
       Schema.Field field = changeSchema.getFields().get(i);
-      Object value = DBUtils.transformValue(sqlColumnType, sqlPrecision, sqlScale, resultSet, field.getName());
-      changeRecordBuilder.set(field.getName(), value);
+      Object sqlValue = DBUtils.transformValue(sqlType, sqlPrecision, sqlScale, resultSet, field.getName());
+      Object javaValue = transformSQLToJavaType(sqlValue);
+      changes.put(field.getName(), javaValue);
     }
-    StructuredRecord changeRecord = changeRecordBuilder.build();
-    recordBuilder.set("change", changeRecord);
-    return recordBuilder.build();
+    return changes;
   }
 
-  private Schema getDMLSchema(Schema changeSchema) {
-    List<Schema.Field> schemaFields = new ArrayList<>();
-    schemaFields.add(TABLE_SCHEMA_FIELD);
-    schemaFields.add(PRIMARY_KEYS_SCHEMA_FIELD);
-    schemaFields.add(OP_TYPE_SCHEMA_FIELD);
-    schemaFields.add(Schema.Field.of("change", changeSchema));
-    return Schema.recordOf(RECORD_NAME, schemaFields);
-  }
-
-  private Schema getChangeSchema(ResultSet resultSet) throws SQLException {
+  private static Schema getChangeSchema(ResultSet resultSet) throws SQLException {
     List<Schema.Field> schemaFields = DBUtils.getSchemaFields(resultSet);
     // drop first three columns as they are from change tracking tables and does not represent the change data
-    return Schema.recordOf("rec", schemaFields.subList(CHANGE_TABLE_COLUMNS_SIZE, schemaFields.size()));
+    return Schema.recordOf(Schemes.CHANGED_ROWS_RECORD,
+                           schemaFields.subList(CHANGE_TABLE_COLUMNS_SIZE, schemaFields.size()));
+  }
 
+  private static Object transformSQLToJavaType(Object sqlValue) {
+    if (sqlValue instanceof Date) {
+      return ((Date) sqlValue).getTime();
+    } else if (sqlValue instanceof Time) {
+      return ((Time) sqlValue).getTime();
+    } else if (sqlValue instanceof Timestamp) {
+      return ((Timestamp) sqlValue).getTime();
+    } else {
+      return sqlValue;
+    }
   }
 }

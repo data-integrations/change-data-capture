@@ -16,17 +16,16 @@
 
 package co.cask.cdc.plugins.sink;
 
-import co.cask.cdap.api.annotation.Description;
-import co.cask.cdap.api.annotation.Macro;
 import co.cask.cdap.api.annotation.Name;
 import co.cask.cdap.api.annotation.Plugin;
 import co.cask.cdap.api.data.format.StructuredRecord;
-import co.cask.cdap.api.plugin.PluginConfig;
+import co.cask.cdap.etl.api.PipelineConfigurer;
 import co.cask.cdap.etl.api.batch.SparkExecutionPluginContext;
 import co.cask.cdap.etl.api.batch.SparkPluginContext;
 import co.cask.cdap.etl.api.batch.SparkSink;
+import co.cask.cdap.etl.api.validation.InvalidStageException;
+import co.cask.cdc.plugins.common.Schemes;
 import co.cask.cdc.plugins.common.SparkConfigs;
-import co.cask.hydrator.common.ReferencePluginConfig;
 import co.cask.hydrator.common.batch.JobUtils;
 import com.google.cloud.bigtable.hbase.BigtableConfiguration;
 import com.google.cloud.bigtable.hbase.BigtableOptionsFactory;
@@ -58,6 +57,14 @@ public class CDCBigTable extends SparkSink<StructuredRecord> {
   }
 
   @Override
+  public void configurePipeline(PipelineConfigurer pipelineConfigurer) {
+    config.validate();
+    if (!Schemes.CHANGE_SCHEMA.isCompatible(pipelineConfigurer.getStageConfigurer().getInputSchema())) {
+      throw new InvalidStageException("Input schema is incompatible with change record schema");
+    }
+  }
+
+  @Override
   public void run(SparkExecutionPluginContext context, JavaRDD<StructuredRecord> javaRDD) throws Exception {
     Map<String, String> hadoopConfigs = SparkConfigs.getHadoopConfigs(javaRDD);
     // maps data sets to each block of computing resources
@@ -66,8 +73,9 @@ public class CDCBigTable extends SparkSink<StructuredRecord> {
            Admin hBaseAdmin = conn.getAdmin()) {
         while (structuredRecordIterator.hasNext()) {
           StructuredRecord input = structuredRecordIterator.next();
-          String tableName = CDCHBase.getTableName(input.get("table"));
-          if ("DDLRecord".equals(input.getSchema().getRecordName())) {
+          StructuredRecord changeRecord = input.get(Schemes.CHANGE_FIELD);
+          String tableName = Schemes.getTableName(changeRecord.get(Schemes.TABLE_FIELD));
+          if (changeRecord.getSchema().getRecordName().equals(Schemes.DDL_SCHEMA.getRecordName())) {
             // Notes: In BigTable, there no such thing as namespace.
             // Dots are allowed in table names, but colons are not.
             // If you try a table name with a colon in it, you will get:
@@ -76,7 +84,7 @@ public class CDCBigTable extends SparkSink<StructuredRecord> {
             CDCTableUtil.createHBaseTable(hBaseAdmin, tableName);
           } else {
             Table table = hBaseAdmin.getConnection().getTable(TableName.valueOf(tableName));
-            CDCTableUtil.updateHBaseTable(table, input);
+            CDCTableUtil.updateHBaseTable(table, changeRecord);
           }
         }
       }
@@ -99,9 +107,12 @@ public class CDCBigTable extends SparkSink<StructuredRecord> {
         conf.set(configEntry.getKey(), configEntry.getValue());
       }
 
-      BigtableConfiguration.configure(conf, config.project, config.instance);
-      conf.set(BigtableOptionsFactory.BIGTABLE_SERVICE_ACCOUNT_JSON_KEYFILE_LOCATION_KEY,
-               config.serviceAccountFilePath);
+      String projectId = config.resolveProject();
+      String serviceAccountFilePath = config.resolveServiceAccountFilePath();
+      BigtableConfiguration.configure(conf, projectId, config.instance);
+      if (serviceAccountFilePath != null) {
+        conf.set(BigtableOptionsFactory.BIGTABLE_SERVICE_ACCOUNT_JSON_KEYFILE_LOCATION_KEY, serviceAccountFilePath);
+      }
 
       return BigtableConfiguration.connect(conf);
     } finally {
@@ -109,31 +120,4 @@ public class CDCBigTable extends SparkSink<StructuredRecord> {
       Thread.currentThread().setContextClassLoader(oldClassLoader);
     }
   }
-
-  /**
-   * Defines the {@link PluginConfig} for the {@link CDCBigTable}.
-   */
-  public static class CDCBigTableConfig extends ReferencePluginConfig {
-
-    @Name("instance")
-    @Description("Instance ID")
-    @Macro
-    public String instance;
-
-
-    @Name("project")
-    @Description("Project ID")
-    @Macro
-    public String project;
-
-    @Name("serviceFilePath")
-    @Description("Service Account File Path")
-    @Macro
-    public String serviceAccountFilePath;
-
-    public CDCBigTableConfig(String referenceName) {
-      super(referenceName);
-    }
-  }
-
 }

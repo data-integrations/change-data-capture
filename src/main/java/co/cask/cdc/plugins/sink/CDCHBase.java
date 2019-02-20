@@ -19,12 +19,13 @@ package co.cask.cdc.plugins.sink;
 import co.cask.cdap.api.annotation.Name;
 import co.cask.cdap.api.annotation.Plugin;
 import co.cask.cdap.api.data.format.StructuredRecord;
-import co.cask.cdap.api.plugin.PluginConfig;
+import co.cask.cdap.etl.api.PipelineConfigurer;
 import co.cask.cdap.etl.api.batch.SparkExecutionPluginContext;
 import co.cask.cdap.etl.api.batch.SparkPluginContext;
 import co.cask.cdap.etl.api.batch.SparkSink;
+import co.cask.cdap.etl.api.validation.InvalidStageException;
+import co.cask.cdc.plugins.common.Schemes;
 import co.cask.cdc.plugins.common.SparkConfigs;
-import co.cask.hydrator.common.ReferencePluginConfig;
 import co.cask.hydrator.common.batch.JobUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.TableName;
@@ -55,6 +56,14 @@ public class CDCHBase extends SparkSink<StructuredRecord> {
   }
 
   @Override
+  public void configurePipeline(PipelineConfigurer pipelineConfigurer) {
+    config.validate();
+    if (!Schemes.CHANGE_SCHEMA.isCompatible(pipelineConfigurer.getStageConfigurer().getInputSchema())) {
+      throw new InvalidStageException("Input schema is incompatible with change record schema");
+    }
+  }
+
+  @Override
   public void run(SparkExecutionPluginContext context, JavaRDD<StructuredRecord> javaRDD) throws Exception {
     Map<String, String> hadoopConfigs = SparkConfigs.getHadoopConfigs(javaRDD);
     // maps data sets to each block of computing resources
@@ -63,12 +72,13 @@ public class CDCHBase extends SparkSink<StructuredRecord> {
            Admin hBaseAdmin = conn.getAdmin()) {
         while (structuredRecordIterator.hasNext()) {
           StructuredRecord input = structuredRecordIterator.next();
-          String tableName = getTableName(input.get("table"));
-          if ("DDLRecord".equals(input.getSchema().getRecordName())) {
+          StructuredRecord changeRecord = input.get(Schemes.CHANGE_FIELD);
+          String tableName = Schemes.getTableName(changeRecord.get(Schemes.TABLE_FIELD));
+          if (changeRecord.getSchema().getRecordName().equals(Schemes.DDL_SCHEMA.getRecordName())) {
             CDCTableUtil.createHBaseTable(hBaseAdmin, tableName);
           } else {
             Table table = hBaseAdmin.getConnection().getTable(TableName.valueOf(tableName));
-            CDCTableUtil.updateHBaseTable(table, input);
+            CDCTableUtil.updateHBaseTable(table, changeRecord);
           }
         }
       }
@@ -97,18 +107,4 @@ public class CDCHBase extends SparkSink<StructuredRecord> {
 
     return ConnectionFactory.createConnection(conf);
   }
-
-  public static String getTableName(String namespacedTableName) {
-    return namespacedTableName.split("\\.")[1];
-  }
-
-  /**
-   * Defines the {@link PluginConfig} for the {@link CDCHBase}.
-   */
-  public static class CDCHBaseConfig extends ReferencePluginConfig {
-    public CDCHBaseConfig(String referenceName) {
-      super(referenceName);
-    }
-  }
 }
-

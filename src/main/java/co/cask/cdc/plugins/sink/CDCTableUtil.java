@@ -19,7 +19,7 @@ package co.cask.cdc.plugins.sink;
 import co.cask.cdap.api.common.Bytes;
 import co.cask.cdap.api.data.format.StructuredRecord;
 import co.cask.cdap.api.data.schema.Schema;
-import com.google.common.base.Joiner;
+import co.cask.cdc.plugins.common.Schemes;
 import com.google.common.base.Preconditions;
 import org.apache.hadoop.hbase.HColumnDescriptor;
 import org.apache.hadoop.hbase.HTableDescriptor;
@@ -33,9 +33,9 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /**
@@ -65,44 +65,41 @@ public class CDCTableUtil {
   /**
    * Updates an HBase API Table with a CDC record.
    *
-   * @param table the HBase API Table to update
-   * @param input the StructuredRecord containing the CDC data
+   * @param table        the HBase API Table to update
+   * @param dmlRecord the StructuredRecord containing the CDC data
    */
-  public static void updateHBaseTable(Table table, StructuredRecord input) throws Exception {
-    String operationType = input.get("op_type");
-    List<String> primaryKeys = input.get("primary_keys");
-    StructuredRecord change = input.get("change");
-    List<Schema.Field> fields = change.getSchema().getFields();
+  public static void updateHBaseTable(Table table, StructuredRecord dmlRecord) throws Exception {
+    String operationType = dmlRecord.get(Schemes.OP_TYPE_FIELD);
+    List<String> primaryKeys = dmlRecord.get(Schemes.PRIMARY_KEYS_FIELD);
+    Schema updateSchema = Schema.parseJson((String) dmlRecord.get(Schemes.UPDATE_SCHEMA_FIELD));
+    Map<String, Object> changes = dmlRecord.get(Schemes.UPDATE_VALUES_FIELD);
 
     switch (operationType) {
       case "I":
       case "U":
-        Put put = new Put(getRowKey(primaryKeys, change));
-        for (Schema.Field field : fields) {
-          setPutField(put, field, change.get(field.getName()));
+        Put put = new Put(getRowKey(primaryKeys, changes));
+        for (Schema.Field field : updateSchema.getFields()) {
+          setPutField(put, field, changes.get(field.getName()));
         }
         table.put(put);
-        LOG.debug("Putting row {}", Bytes.toString(getRowKey(primaryKeys, change)));
+        LOG.debug("Putting row {}", Bytes.toString(getRowKey(primaryKeys, changes)));
         break;
       case "D":
-        Delete delete = new Delete(getRowKey(primaryKeys, change));
+        Delete delete = new Delete(getRowKey(primaryKeys, changes));
         table.delete(delete);
-        LOG.debug("Deleting row {}", Bytes.toString(getRowKey(primaryKeys, change)));
+        LOG.debug("Deleting row {}", Bytes.toString(getRowKey(primaryKeys, changes)));
         break;
       default:
         LOG.warn("Operation of type '{}' will be ignored.", operationType);
     }
   }
 
-  private static byte[] getRowKey(List<String> primaryKeys, StructuredRecord change) {
+  private static byte[] getRowKey(List<String> primaryKeys, Map<String, Object> changes) {
     // the primary keys are always in sorted order
-    List<String> primaryValues = new ArrayList<>();
-    String[] primaryKeysArray = primaryKeys.toArray(new String[0]);
-    Arrays.sort(primaryKeysArray);
-    for (String primaryKey : primaryKeysArray) {
-      primaryValues.add(change.get(primaryKey).toString());
-    }
-    String joinedValue = Joiner.on(":").join(primaryValues);
+    String joinedValue = primaryKeys.stream()
+      .sorted()
+      .map(primaryKey -> changes.get(primaryKey).toString())
+      .collect(Collectors.joining(":"));
     return Bytes.toBytes(joinedValue);
   }
 

@@ -21,9 +21,12 @@ import co.cask.cdap.api.annotation.Name;
 import co.cask.cdap.api.annotation.Plugin;
 import co.cask.cdap.api.data.format.StructuredRecord;
 import co.cask.cdap.api.data.schema.Schema;
+import co.cask.cdap.api.dataset.DatasetProperties;
 import co.cask.cdap.etl.api.PipelineConfigurer;
 import co.cask.cdap.etl.api.streaming.StreamingContext;
 import co.cask.cdap.etl.api.streaming.StreamingSource;
+import co.cask.cdc.plugins.common.Schemes;
+import co.cask.hydrator.common.Constants;
 import kafka.api.OffsetRequest;
 import kafka.api.PartitionOffsetRequestInfo;
 import kafka.common.TopicAndPartition;
@@ -60,7 +63,7 @@ import java.util.Set;
 @Plugin(type = StreamingSource.PLUGIN_TYPE)
 @Name("CDCDatabase")
 @Description("Streaming source for reading through Golden Gate Kafka topic")
-public class GoldenGateKafka extends ReferenceStreamingSource<StructuredRecord> {
+public class GoldenGateKafka extends StreamingSource<StructuredRecord> {
   private static final Logger LOG = LoggerFactory.getLogger(GoldenGateKafka.class);
   private static final Schema GENERIC_WRAPPER_SCHEMA_MESSAGE
     = Schema.recordOf("GenericWrapperSchema", Schema.Field.of("message", Schema.of(Schema.Type.BYTES)));
@@ -85,15 +88,14 @@ public class GoldenGateKafka extends ReferenceStreamingSource<StructuredRecord> 
 
 
   public GoldenGateKafka(GoldenGateKafkaConfig conf) {
-    super(conf);
     this.conf = conf;
   }
 
   @Override
   public void configurePipeline(PipelineConfigurer pipelineConfigurer) throws IllegalArgumentException {
-    super.configurePipeline(pipelineConfigurer);
-    // Validate the configurations
     conf.validate();
+    pipelineConfigurer.createDataset(conf.referenceName, Constants.EXTERNAL_DATASET_TYPE, DatasetProperties.EMPTY);
+    pipelineConfigurer.getStageConfigurer().setOutputSchema(Schemes.CHANGE_SCHEMA);
 
     // Make sure that Golden Gate kafka topic only have single partition
     SimpleConsumer consumer = new SimpleConsumer(conf.getHost(), conf.getPort(), 20 * 1000, 128 * 1024,
@@ -129,11 +131,14 @@ public class GoldenGateKafka extends ReferenceStreamingSource<StructuredRecord> 
     kafkaParams.put("metadata.broker.list", conf.getBroker());
     JavaInputDStream<StructuredRecord> directStream = KafkaUtils.createDirectStream(
       context.getSparkStreamingContext(), byte[].class, byte[].class, DefaultDecoder.class, DefaultDecoder.class,
-      StructuredRecord.class, kafkaParams, offsets, this::kafkaMessageToRecord);
+      StructuredRecord.class, kafkaParams, offsets, in -> kafkaMessageToRecord(in));
     return directStream
       .mapToPair(record -> new Tuple2<>("", record))
       .mapWithState(StateSpec.function(schemaStateFunction()))
-      .flatMap(record -> NORMALIZER.transform(record).iterator());
+      .flatMap(record -> NORMALIZER.transform(record).iterator())
+      .map(changeRecord -> StructuredRecord.builder(Schemes.CHANGE_SCHEMA)
+        .set(Schemes.CHANGE_FIELD, changeRecord)
+        .build());
   }
 
   private Map<TopicAndPartition, Long> loadOffsets(SimpleConsumer consumer) {
