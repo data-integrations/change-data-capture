@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "spec-version": "1.3"
+    "spec-version": "1.5"
   },
   "configuration-groups": [
     {
@@ -9,7 +9,8 @@
         {
           "widget-type": "textbox",
           "label": "Reference Name",
-          "name": "referenceName"
+          "name": "referenceName",
+          "description": "Reference specifies the name to be used to track this external source"
         },
         {
           "widget-type": "textbox",
@@ -41,47 +42,12 @@
     {
       "widget-type": "non-editable-schema-editor",
       "schema": {
+        "name": "CDCRecord",
         "type": "record",
-        "name": "etlSchemaBody",
         "fields": [
           {
-            "name": "op_type",
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          {
-            "name": "table",
-            "type": "string"
-          },
-          {
-            "name": "primary_keys",
-            "type": {
-              "type": "array",
-              "items": "string"
-            }
-          },
-          {
-            "name": "schema",
-            "type": "string"
-          },
-          {
-            "name": "change",
-            "type": {
-              "type": "record",
-              "name": "changerecord",
-              "fields": [
-                {
-                  "name": "columns",
-                  "type": {
-                    "type": "map",
-                    "keys": "string",
-                    "values": "string"
-                  }
-                }
-              ]
-            }
+            "name": "cdcMessage",
+            "type": "bytes"
           }
         ]
       }

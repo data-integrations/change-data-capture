@@ -1,17 +1,50 @@
-CDC Google Bigtable Sink
-==========
+# CDC Google Cloud Bigtable Sink
 
-CDAP Plugin for Change Data Capture (CDC) in Google Bigtable using the Spark Framework. Plugin can be configured only for real-time pipelines.
+Description
+-----------
+This plugin takes input from a CDC source and writes the changes to Cloud Bigtable.
+
+All CDC sink plugins are normally used in conjunction with CDC source plugins. 
+CDC sink expects messages in CDC format as an input.  
+
+Credentials
+-----------
+If the plugin is run on a Google Cloud Dataproc cluster, the service account key does not need to be
+provided and can be set to 'auto-detect'.
+Credentials will be automatically read from the cluster environment.
+
+If the plugin is not run on a Dataproc cluster, the path to a service account key must be provided.
+The service account key can be found on the Dashboard in the Cloud Platform Console.
+Make sure the account key has permission to access BigQuery and Google Cloud Storage.
+The service account key file needs to be available on every node in your cluster and
+must be readable by all users running the job.
+
+Properties
+----------
+**Reference Name**: Name used to uniquely identify this source for lineage, annotating metadata, etc.
+
+**Instance ID**: The Instance Id the Cloud Bigtable is in.
+
+**Project ID**: Google Cloud Project ID, which uniquely identifies a project.
+It can be found on the Dashboard in the Google Cloud Platform Console. This is the project
+that the BigQuery job will run in. If a temporary bucket needs to be created, the service account
+must have permission in this project to create buckets.
+
+**Service Account File Path**: Path on the local file system of the service account key used for
+authorization. Can be set to 'auto-detect' when running on a Dataproc cluster.
+When running on other clusters, the file must be present on every node in the cluster.
 
 Usage Notes
 -----------
-
-This plugin supports table creation and table modification on a Google Bigtable project. We recommend placing a normalizer transformation plugin before this plugin. It converts inputs into standard Data Definition Language (DDL) and Data Manipulation Language (DML) records that can be parsed by this plugin.
+This plugin supports table creation and table modification on a Cloud Bigtable project. 
+We recommend placing a normalizer transformation plugin before this plugin. 
+It converts inputs into standard Data Definition Language (DDL) and Data Manipulation Language (DML) records that 
+can be parsed by this plugin.
 
 Table Creation
 --------------
-
-When the plugin receives a DDL record, it creates a table in the target Google Bigtable project. The name of the table is specified in the DDL record. Below is a sample DDL Record that creates a table with name `TESTANOTHER`.
+When the plugin receives a DDL record, it creates a table in the target Cloud Bigtable project. The name of the table 
+is specified in the DDL record. Below is a sample DDL Record that creates a table with name `TESTANOTHER`.
 ```{
   "schema": {
     "type": "RECORD",
@@ -59,7 +92,8 @@ When the plugin receives a DDL record, it creates a table in the target Google B
 
 Table Modification
 --------------
-When the plugin receives a DML record, it modifies the corresponding table according to the operation specified in `op_type`. 
+When the plugin receives a DML record, it modifies the corresponding table according to the operation specified in 
+`op_type`. 
 
 | op\_type | Operation |
 | :--------------: | :--------------: |
@@ -67,7 +101,9 @@ When the plugin receives a DML record, it modifies the corresponding table accor
 | U | Update | 
 | D | Delete |
 
-The content of the changes is listed in the `change` field. The `primary_keys` field specifies the fields in `change` that will be used to name a row in the table. Below is a sample DML record that creates a row for `Scott` and inserts his information into the row.
+The content of the changes is listed in the `change` field. The `primary_keys` field specifies the fields in `change` 
+that will be used to name a row in the table. Below is a sample DML record that creates a row for `Scott` and inserts 
+his information into the row.
 ```
 {
   "table": "EMPLOYEE",
@@ -89,67 +125,3 @@ The content of the changes is listed in the `change` field. The `primary_keys` f
   }
 }
 ```
-Plugin Configuration
----------------------
-
-The following configurations collectively specify the target Google Bigtable instance and the relevant credentials.
-
-| Config | Required | Default | Description |
-| :------------ | :------: | :----- | :---------- |
-| **Reference Name** | **Yes** | N/A | Name of the plugin instance. |
-| **Instance Id** | **Yes** | N/A | The Instance Id the Bigtable table is in. |
-| **Project Id** | **Yes** | N/A | The Project Id the Bigtable table is in. |
-| **Service Account File Path** | **Yes** | N/A | Service File Path that contains the private key. Note the service file should be distributed on all the nodes of the cluster. |
-
-Build
------
-To build this plugin:
-
-```
-   mvn clean package -DskipTests
-```    
-
-The build will create a .jar and .json file under the ``target`` directory.
-These files can be used to deploy your plugins.
-
-Deployment
-----------
-You can deploy your plugins using the CDAP CLI:
-
-    > load artifact <target/plugin.jar> config-file <target/plugin.json>
-
-For example, if your artifact is named 'cask-cdc-1.0.0':
-
-    > load artifact target/cask-cdc-1.0.0.jar config-file target/cask-cdc-1.0.0.json
-    
-## Mailing Lists
-
-CDAP User Group and Development Discussions:
-
-* `cdap-user@googlegroups.com <https://groups.google.com/d/forum/cdap-user>`
-
-The *cdap-user* mailing list is primarily for users using the product to develop
-applications or building plugins for appplications. You can expect questions from 
-users, release announcements, and any other discussions that we think will be helpful 
-to the users.
-
-## IRC Channel
-
-CDAP IRC Channel: #cdap on irc.freenode.net
-
-
-## License and Trademarks
-
-Copyright © 2017 Cask Data, Inc.
-
-Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
-in compliance with the License. You may obtain a copy of the License at
-
-http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software distributed under the 
-License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, 
-either express or implied. See the License for the specific language governing permissions 
-and limitations under the License.
-
-Cask is a trademark of Cask Data, Inc. All rights reserved.

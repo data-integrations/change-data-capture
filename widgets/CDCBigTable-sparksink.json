@@ -1,35 +1,41 @@
 {
   "metadata": {
-    "spec-version": "1.0"
+    "spec-version": "1.5"
   },
-  "display-name" : "CDC Bigtable Sink",
+  "display-name": "CDC Google Cloud Bigtable Sink",
   "configuration-groups": [
     {
-      "label": "Google Bigtable Sink Configuration",
+      "label": "Cloud Bigtable Sink Configuration",
       "properties": [
         {
-          "widget-type" : "textbox",
-          "label" : "Instance Id",
-          "name" : "instance",
-          "description" : "The Instance Id the Bigtable is in."
+          "widget-type": "textbox",
+          "label": "Reference Name",
+          "name": "referenceName",
+          "description": "Reference specifies the name to be used to track this external source"
         },
         {
-          "widget-type" : "textbox",
-          "label" : "Project Id",
-          "name" : "project",
-          "description" : "The Project Id the Bigtable table is in."
+          "widget-type": "textbox",
+          "label": "Instance Id",
+          "name": "instance",
+          "description": "The Instance Id the Cloud Bigtable is in."
         },
         {
-          "widget-type" : "textbox",
-          "label" : "Service Account File Path",
-          "name" : "serviceFilePath",
-          "description" : "Path to service account file (local to host running on)."
+          "widget-type": "textbox",
+          "label": "Project Id",
+          "name": "project",
+          "description": "The Project Id the Cloud Bigtable table is in.",
+          "widget-attributes": {
+            "default": "auto-detect"
+          }
         },
         {
-          "widget-type" : "textbox",
-          "label" : "Reference Name",
-          "name" : "referenceName",
-          "description" : "Reference specifies the name to be used to track this external source"
+          "widget-type": "textbox",
+          "label": "Service Account File Path",
+          "name": "serviceFilePath",
+          "description": "Path to service account file (local to host running on).",
+          "widget-attributes": {
+            "default": "auto-detect"
+          }
         }
       ]
     }

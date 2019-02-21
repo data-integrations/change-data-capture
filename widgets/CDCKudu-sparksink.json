@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "spec-version": "1.0"
+    "spec-version": "1.5"
   },
   "configuration-groups": [
     {
@@ -25,7 +25,7 @@
       "properties" : [
         {
           "widget-type": "number",
-          "label": "No of buckets (DEFAULT: 16)",
+          "label": "No of buckets",
           "name": "buckets",
           "widget-attributes" : {
             "default" : 16
@@ -33,16 +33,18 @@
         },
         {
           "widget-type": "number",
-          "label": "Seed to randomize the mapping of rows to hash buckets (DEFAULT: 0)",
+          "label": "Seed",
           "name": "seed",
+          "description": "Seed to randomize the mapping of rows to hash buckets",
           "widget-attributes" : {
-            "default" : 1
+            "default" : 0
           }
         },
         {
           "widget-type": "select",
-          "label": "Compression Algorithm. All fields will be applied same compression. (DEFAULT: Snappy)",
+          "label": "Compression Algorithm",
           "name": "compression-algo",
+          "description": "Compression Algorithm. All fields will be applied same compression",
           "widget-attributes" : {
             "values" : [
               "Snappy",
@@ -56,8 +58,9 @@
         },
         {
           "widget-type": "select",
-          "label": "Encoding Type. All fields will be applied same encoding. (DEFAULT : Auto)",
+          "label": "Encoding Type",
           "name": "encoding",
+          "description": "Encoding Type. All fields will be applied same encoding",
           "widget-attributes" : {
             "values": [
               "Auto",
@@ -73,40 +76,45 @@
         },
         {
           "widget-type": "number",
-          "label": "User operations timeout in milliseconds (DEFAULT: 30000ms)",
+          "label": "User Operations Timeout",
           "name": "opt-timeout",
+          "description": "User operations timeout in milliseconds",
           "widget-attributes" : {
             "default" : 30000
           }
         },
         {
           "widget-type": "number",
-          "label": "Administration operation timeout in milliseconds (DEFAULT: 30000ms)",
+          "label": "Administration Operations Timeout",
           "name": "admin-timeout",
+          "description": "Administration operation timeout in milliseconds",
           "widget-attributes" : {
             "default" : 30000
           }
         },
         {
           "widget-type": "number",
-          "label": "Number of copies (DEFAULT: 1)",
+          "label": "Replicas",
           "name": "replicas",
+          "description": "Specifies the number of replicas for the Kudu tables",
           "widget-attributes" : {
             "default" : 1
           }
         },
         {
           "widget-type": "number",
-          "label": "Rows to be cached before being flushed (DEFAULT: 1000)",
+          "label": "Rows Buffer",
           "name" : "row-flush",
+          "description": "Number of rows that are buffered before flushing to the tablet server",
           "widget-attributes" : {
             "default" : 1000
           }
         },
         {
           "widget-type": "number",
-          "label" : "Specifies the number of boss threads to be used by the client.",
+          "label" : "Boss Threads",
           "name": "boss-threads",
+          "description" : "Specifies the number of boss threads to be used by the client",
           "widget-attributes" : {
             "default" : 1
           }
