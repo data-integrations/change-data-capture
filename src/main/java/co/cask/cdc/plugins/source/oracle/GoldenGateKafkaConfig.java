@@ -17,57 +17,60 @@ package co.cask.cdc.plugins.source.oracle;
 
 import co.cask.cdap.api.annotation.Description;
 import co.cask.cdap.api.annotation.Macro;
+import co.cask.cdap.api.annotation.Name;
+import co.cask.cdap.etl.api.validation.InvalidConfigPropertyException;
+import co.cask.hydrator.common.IdUtils;
 import co.cask.hydrator.common.ReferencePluginConfig;
-import kafka.javaapi.PartitionMetadata;
-import kafka.javaapi.TopicMetadata;
-import kafka.javaapi.TopicMetadataRequest;
-import kafka.javaapi.TopicMetadataResponse;
+import org.apache.commons.lang3.ObjectUtils;
 
-import java.io.Serializable;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
  * Configurations to be used for Golden Gate Kafka source.
  */
-public class GoldenGateKafkaConfig extends ReferencePluginConfig implements Serializable {
+public class GoldenGateKafkaConfig extends ReferencePluginConfig {
 
   private static final long serialVersionUID = 8069169417140954175L;
 
+  private static final String BROKER = "broker";
+  private static final String TOPIC = "topic";
+  private static final String DEFAULT_INITIAL_OFFSET = "defaultInitialOffset";
+  private static final String MAX_RATE_PER_PARTITION = "maxRatePerPartition";
+
+  @Name(BROKER)
   @Description("Kafka broker specified in host:port form. For example, example.com:9092")
   @Macro
+  @Nullable
   private String broker;
 
+  @Name(TOPIC)
   @Description("Name of the topic to which Golden Gate publishes the DDL and DML changes.")
   @Macro
+  @Nullable
   private String topic;
 
+  @Name(DEFAULT_INITIAL_OFFSET)
   @Description("The default initial offset to read from. " +
     "An offset of -2 means the smallest offset. An offset of -1 means the latest offset. Defaults to -1. " +
     "Offsets are inclusive. If an offset of 5 is used, the message at offset 5 will be read. ")
-  @Nullable
   @Macro
+  @Nullable
   private Long defaultInitialOffset;
 
+  @Name(MAX_RATE_PER_PARTITION)
   @Description("Max number of records to read per second per partition. 0 means there is no limit. Defaults to 1000.")
   @Nullable
   private Integer maxRatePerPartition;
 
-  public GoldenGateKafkaConfig() {
-    super("");
-    defaultInitialOffset = -1L;
-    maxRatePerPartition = 1000;
-  }
-
-  public GoldenGateKafkaConfig(String referenceName, String broker, String topic, Long defaultInitialOffset) {
+  public GoldenGateKafkaConfig(String referenceName, @Nullable String broker, @Nullable String topic,
+                               @Nullable Long defaultInitialOffset) {
     super(referenceName);
     this.broker = broker;
     this.topic = topic;
     this.defaultInitialOffset = defaultInitialOffset;
   }
 
+  @Nullable
   public String getBroker() {
     return broker;
   }
@@ -80,16 +83,17 @@ public class GoldenGateKafkaConfig extends ReferencePluginConfig implements Seri
     return Integer.valueOf(broker.split(":")[1]);
   }
 
+  @Nullable
   public String getTopic() {
     return topic;
   }
 
   public Long getDefaultInitialOffset() {
-    return defaultInitialOffset;
+    return ObjectUtils.defaultIfNull(defaultInitialOffset, -1L);
   }
 
   public Integer getMaxRatePerPartition() {
-    return maxRatePerPartition == null ? 1000 : maxRatePerPartition;
+    return ObjectUtils.defaultIfNull(maxRatePerPartition, 1000);
   }
 
   /**
@@ -97,12 +101,13 @@ public class GoldenGateKafkaConfig extends ReferencePluginConfig implements Seri
    * throws IllegalArgumentException if validation fails
    */
   public void validate() {
+    IdUtils.validateId(referenceName);
     try {
       getHost();
       getPort();
     } catch (Exception e) {
-      throw new IllegalArgumentException(String.format("Broker address '%s' should be in the form of 'host:port'.",
-                                                       broker));
+      throw new InvalidConfigPropertyException(
+        String.format("Broker address '%s' should be in the form of 'host:port'.", broker), e, BROKER);
     }
   }
 }

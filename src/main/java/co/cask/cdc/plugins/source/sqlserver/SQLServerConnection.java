@@ -1,9 +1,7 @@
 package co.cask.cdc.plugins.source.sqlserver;
 
-import com.google.common.base.Throwables;
 import com.microsoft.sqlserver.jdbc.SQLServerDriver;
-import scala.Serializable;
-import scala.runtime.AbstractFunction0;
+import org.apache.spark.rdd.JdbcRDD;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -14,10 +12,10 @@ import java.sql.DriverManager;
  * Note: This class does not do any connection management. Its the responsibility of the client
  * to manage/close the connection.
  */
-class SQLServerConnection extends AbstractFunction0<Connection> implements Serializable {
-  private String connectionUrl;
-  private String userName;
-  private String password;
+class SQLServerConnection implements JdbcRDD.ConnectionFactory {
+  private final String connectionUrl;
+  private final String userName;
+  private final String password;
 
   SQLServerConnection(String connectionUrl, String userName, String password) {
     this.connectionUrl = connectionUrl;
@@ -26,12 +24,8 @@ class SQLServerConnection extends AbstractFunction0<Connection> implements Seria
   }
 
   @Override
-  public Connection apply() {
-    try {
-      Class.forName(SQLServerDriver.class.getName());
-      return DriverManager.getConnection(connectionUrl, userName, password);
-    } catch (Exception e) {
-      throw Throwables.propagate(e);
-    }
+  public Connection getConnection() throws Exception {
+    Class.forName(SQLServerDriver.class.getName());
+    return DriverManager.getConnection(connectionUrl, userName, password);
   }
 }

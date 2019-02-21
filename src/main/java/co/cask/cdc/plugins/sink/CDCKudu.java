@@ -20,9 +20,12 @@ import co.cask.cdap.api.annotation.Name;
 import co.cask.cdap.api.annotation.Plugin;
 import co.cask.cdap.api.data.format.StructuredRecord;
 import co.cask.cdap.api.data.schema.Schema;
+import co.cask.cdap.etl.api.PipelineConfigurer;
 import co.cask.cdap.etl.api.batch.SparkExecutionPluginContext;
 import co.cask.cdap.etl.api.batch.SparkPluginContext;
 import co.cask.cdap.etl.api.batch.SparkSink;
+import co.cask.cdap.etl.api.validation.InvalidStageException;
+import co.cask.cdc.plugins.common.Schemas;
 import com.google.common.collect.Sets;
 import org.apache.kudu.ColumnSchema;
 import org.apache.kudu.Type;
@@ -45,6 +48,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -62,16 +66,23 @@ public class CDCKudu extends SparkSink<StructuredRecord> {
     this.config = config;
   }
 
-  private boolean updateKuduTableSchema(KuduClient client, StructuredRecord input) throws Exception {
-    String namespacedTableName = input.get("table");
-    String tableName = namespacedTableName.split("\\.")[1];
-    Schema newSchema = Schema.parseJson((String) input.get("schema"));
+  @Override
+  public void configurePipeline(PipelineConfigurer pipelineConfigurer) {
+    config.validate();
+    if (!Schemas.CHANGE_SCHEMA.isCompatible(pipelineConfigurer.getStageConfigurer().getInputSchema())) {
+      throw new InvalidStageException("Input schema is incompatible with change record schema");
+    }
+  }
+
+  private boolean updateKuduTableSchema(KuduClient client, StructuredRecord ddlRecord) throws Exception {
+    String tableName = Schemas.getTableName(ddlRecord.get(Schemas.TABLE_FIELD));
     if (!existingTables.contains(tableName) && !client.tableExists(tableName)) {
       // Table does not exists in the Kudu yet.
       // Creation of table will be attempted when we first see the DML Record.
       // Since at that point we know the primary keys to used.
       return false;
     }
+    Schema newSchema = Schema.parseJson((String) ddlRecord.get(Schemas.SCHEMA_FIELD));
 
     KuduTable table = client.openTable(tableName);
     org.apache.kudu.Schema kuduTableSchema = table.getSchema();
@@ -101,20 +112,22 @@ public class CDCKudu extends SparkSink<StructuredRecord> {
     AlterTableOptions alterTableOptions = new AlterTableOptions();
     for (String column : columnsToDelete) {
       alterTableOptions.dropColumn(column);
-      LOG.info("Column {} will be dropped.", column);
+      LOG.debug("Column {} will be dropped.", column);
     }
 
     for (String column : columnsToAdd) {
       Schema.Field newField = newSchema.getField(column);
       Type kuduType = toKuduType(column, newField.getSchema(), new HashSet<>());
       alterTableOptions.addNullableColumn(column, kuduType);
-      LOG.info("Column {} of type {} will be added to the Kudu table {}.", column, kuduType, table.getName());
+      LOG.debug("Column {} of type {} will be added to the Kudu table {}.", column, kuduType, table.getName());
     }
 
     if (!(columnsToAdd.isEmpty() && columnsToDelete.isEmpty())) {
       LOG.debug("Altering table {}, {}", table.getName(), alterTableOptions);
       client.alterTable(table.getName(), alterTableOptions);
-      client.isAlterTableDone(table.getName());
+      if (!client.isAlterTableDone(table.getName())) {
+        LOG.warn("Failed to alter table {}", table.getName());
+      }
       table = client.openTable(table.getName());
       LOG.debug("Columns after alter table {}", table.getSchema().getColumns());
     }
@@ -122,34 +135,33 @@ public class CDCKudu extends SparkSink<StructuredRecord> {
     return true;
   }
 
-  private String getTableName(String namespacedTableName) {
-    return namespacedTableName.split("\\.")[1];
-  }
-
-  private void updateKuduTableRecord(KuduClient client, KuduSession session, StructuredRecord input) throws Exception {
-    String tableName = getTableName(input.get("table"));
-    String operationType = input.get("op_type");
-    List<String> primaryKeys = input.get("primary_keys");
-    StructuredRecord change = input.get("change");
-    List<Schema.Field> fields = change.getSchema().getFields();
+  private void updateKuduTableRecord(KuduClient client, KuduSession session, StructuredRecord dmlRecord)
+    throws Exception {
+    String tableName = Schemas.getTableName(dmlRecord.get(Schemas.TABLE_FIELD));
+    String operationType = dmlRecord.get(Schemas.OP_TYPE_FIELD);
+    List<String> primaryKeys = dmlRecord.get(Schemas.PRIMARY_KEYS_FIELD);
+    Schema updateSchema = Schema.parseJson((String) dmlRecord.get(Schemas.UPDATE_SCHEMA_FIELD));
+    Map<String, Object> updateValues = dmlRecord.get(Schemas.UPDATE_VALUES_FIELD);
+    List<Schema.Field> fields = updateSchema.getFields();
     if (!existingTables.contains(tableName) && !client.tableExists(tableName)) {
       createKuduTable(client, tableName, fields, primaryKeys);
       existingTables.add(tableName);
     }
 
     KuduTable table = client.openTable(tableName);
+    HashSet<String> primaryKeysSet = new HashSet<>(primaryKeys);
     switch (operationType) {
       case "I":
         Insert insert = table.newInsert();
         for (Schema.Field field : fields) {
-          addColumnDataBasedOnType(insert.getRow(), field, change.get(field.getName()), new HashSet<>(primaryKeys));
+          addColumnDataBasedOnType(insert.getRow(), field, updateValues.get(field.getName()), primaryKeysSet);
         }
         session.apply(insert);
         break;
       case "U":
         Update update = table.newUpdate();
         for (Schema.Field field : fields) {
-          addColumnDataBasedOnType(update.getRow(), field, change.get(field.getName()), new HashSet<>(primaryKeys));
+          addColumnDataBasedOnType(update.getRow(), field, updateValues.get(field.getName()), primaryKeysSet);
         }
         session.apply(update);
         break;
@@ -158,7 +170,7 @@ public class CDCKudu extends SparkSink<StructuredRecord> {
         for (String keyColumn : primaryKeys) {
           for (Schema.Field field : fields) {
             if (field.getName().equals(keyColumn)) {
-              addColumnDataBasedOnType(delete.getRow(), field, change.get(field.getName()), new HashSet<>(primaryKeys));
+              addColumnDataBasedOnType(delete.getRow(), field, updateValues.get(field.getName()), primaryKeysSet);
               break;
             }
           }
@@ -213,34 +225,19 @@ public class CDCKudu extends SparkSink<StructuredRecord> {
 
   private void createKuduTable(KuduClient client, String tableName, List<Schema.Field> fields,
                                List<String> primaryKeys) throws Exception {
-    // Check if the table exists, if table does not exist, then create one
-    // with schema defined in the write schema.
-    try {
-      if (!client.tableExists(tableName)) {
-        // Convert the writeSchema into Kudu schema.
-        List<ColumnSchema> columnSchemas = toKuduSchema(fields, new HashSet<>(primaryKeys),
-                                                        config.getCompression(), config.getEncoding());
-        List<ColumnSchema> schemaColumns = getOrderedSchemaColumns(primaryKeys, columnSchemas);
-        org.apache.kudu.Schema kuduSchema = new org.apache.kudu.Schema(schemaColumns);
-        CreateTableOptions options = new CreateTableOptions();
-        options.addHashPartitions(primaryKeys, config.getBuckets(), config.getSeed());
+    // Convert the writeSchema into Kudu schema.
+    List<ColumnSchema> columnSchemas = toKuduSchema(fields, new HashSet<>(primaryKeys),
+                                                    config.getCompression(), config.getEncoding());
+    org.apache.kudu.Schema kuduSchema = new org.apache.kudu.Schema(getOrderedSchemaColumns(primaryKeys, columnSchemas));
+    CreateTableOptions options = new CreateTableOptions();
+    options.addHashPartitions(primaryKeys, config.getBuckets(), config.getSeed());
 
-        try {
-          KuduTable table = client.createTable(tableName, kuduSchema, options);
-          LOG.info("Successfully created Kudu table '{}', Table ID '{}'", tableName, table.getTableId());
-        } catch (KuduException e) {
-          throw new RuntimeException(
-            String.format("Unable to create table '%s'. Reason : %s", tableName, e.getMessage())
-          );
-        }
-      }
+    try {
+      KuduTable table = client.createTable(tableName, kuduSchema, options);
+      LOG.info("Successfully created Kudu table '{}', Table ID '{}'", tableName, table.getTableId());
     } catch (KuduException e) {
-      String msg = String.format("Unable to check if the table '%s' exists in kudu. Reason : %s", tableName,
-                                 e.getMessage());
-      LOG.warn(msg);
-      throw new RuntimeException(e);
-    } catch (TypeConversionException e) {
-      throw new RuntimeException(e.getMessage());
+      throw new RuntimeException(String.format("Unable to create table '%s'. Reason : %s",
+                                               tableName, e.getMessage()), e);
     }
   }
 
@@ -274,10 +271,10 @@ public class CDCKudu extends SparkSink<StructuredRecord> {
   /**
    * Converts from CDAP field types to Kudu types.
    *
-   * @param fields    CDAP Schema fields
-   * @param columns   List of columns that are considered as keys
+   * @param fields CDAP Schema fields
+   * @param columns List of columns that are considered as keys
    * @param algorithm Compression algorithm to be used for the column.
-   * @param encoding  Encoding type
+   * @param encoding Encoding type
    * @return List of {@link ColumnSchema}
    * @throws TypeConversionException thrown when CDAP schema cannot be converted to Kudu Schema.
    */
@@ -347,33 +344,41 @@ public class CDCKudu extends SparkSink<StructuredRecord> {
   }
 
   @Override
-  public void run(SparkExecutionPluginContext sparkExecutionPluginContext, JavaRDD<StructuredRecord> javaRDD) {
+  public void run(SparkExecutionPluginContext context, JavaRDD<StructuredRecord> javaRDD) throws Exception {
     javaRDD.foreachPartition(structuredRecordIterator -> {
-      try (KuduClient client = new KuduClient.KuduClientBuilder(config.getMasterAddress())
-        .defaultOperationTimeoutMs(config.getOperationTimeout())
-        .defaultAdminOperationTimeoutMs(config.getAdministrationTimeout())
-        .disableStatistics()
-        .bossCount(config.getThreads())
-        .build()) {
-
+      try (KuduClient client = getClient()) {
         KuduSession session = client.newSession();
-        // Buffer 100 operations
-        session.setMutationBufferSpace(100);
-        session.setFlushMode(SessionConfiguration.FlushMode.AUTO_FLUSH_BACKGROUND);
+        try {
+          // Buffer 100 operations
+          session.setMutationBufferSpace(100);
+          session.setFlushMode(SessionConfiguration.FlushMode.AUTO_FLUSH_BACKGROUND);
 
-        while (structuredRecordIterator.hasNext()) {
-          StructuredRecord input = structuredRecordIterator.next();
-          if ("DDLRecord".equals(input.getSchema().getRecordName())) {
-            if (updateKuduTableSchema(client, input)) {
-              // Schema for the table is updated. Flush the session now
-              session.flush();
+          while (structuredRecordIterator.hasNext()) {
+            StructuredRecord input = structuredRecordIterator.next();
+            StructuredRecord changeRecord = input.get(Schemas.CHANGE_FIELD);
+            if (changeRecord.getSchema().getRecordName().equals(Schemas.DDL_SCHEMA.getRecordName())) {
+              if (updateKuduTableSchema(client, changeRecord)) {
+                // Schema for the table is updated. Flush the session now
+                session.flush();
+              }
+            } else {
+              updateKuduTableRecord(client, session, changeRecord);
             }
-          } else {
-            updateKuduTableRecord(client, session, input);
           }
+        } finally {
+          session.close();
         }
       }
     });
+  }
+
+  private KuduClient getClient() {
+    return new KuduClient.KuduClientBuilder(config.getMasterAddress())
+      .defaultOperationTimeoutMs(config.getOperationTimeout())
+      .defaultAdminOperationTimeoutMs(config.getAdministrationTimeout())
+      .disableStatistics()
+      .bossCount(config.getThreads())
+      .build();
   }
 
   @Override

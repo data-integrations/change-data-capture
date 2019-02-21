@@ -4,10 +4,13 @@ import co.cask.cdap.api.annotation.Description;
 import co.cask.cdap.api.annotation.Name;
 import co.cask.cdap.api.annotation.Plugin;
 import co.cask.cdap.api.data.format.StructuredRecord;
+import co.cask.cdap.api.dataset.DatasetProperties;
 import co.cask.cdap.etl.api.PipelineConfigurer;
 import co.cask.cdap.etl.api.streaming.StreamingContext;
 import co.cask.cdap.etl.api.streaming.StreamingSource;
-import com.google.common.base.Throwables;
+import co.cask.cdap.etl.api.validation.InvalidStageException;
+import co.cask.cdc.plugins.common.Schemas;
+import co.cask.hydrator.common.Constants;
 import org.apache.spark.api.java.Optional;
 import org.apache.spark.api.java.function.Function4;
 import org.apache.spark.streaming.State;
@@ -18,6 +21,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import scala.Tuple2;
 import scala.reflect.ClassTag;
+import scala.reflect.ClassTag$;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -44,27 +48,36 @@ public class CTSQLServer extends StreamingSource<StructuredRecord> {
   }
 
   @Override
-  public void configurePipeline(PipelineConfigurer pipelineConfigurer) throws IllegalArgumentException {
+  public void configurePipeline(PipelineConfigurer pipelineConfigurer) {
+    conf.validate();
+    pipelineConfigurer.createDataset(conf.referenceName, Constants.EXTERNAL_DATASET_TYPE, DatasetProperties.EMPTY);
+    pipelineConfigurer.getStageConfigurer().setOutputSchema(Schemas.CHANGE_SCHEMA);
+
     if (conf.getUsername() != null && conf.getPassword() != null) {
       LOG.info("Creating connection with url {}, username {}, password *****",
                getConnectionString(), conf.getUsername());
     } else {
       LOG.info("Creating connection with url {}", getConnectionString());
     }
-    try (Connection connection = dbConnection.apply()) {
+    try (Connection connection = dbConnection.getConnection()) {
       // check that CDC is enabled on the database
       checkDBCTEnabled(connection, conf.getDbName());
-    } catch (SQLException e) {
-      throw Throwables.propagate(e);
+    } catch (InvalidStageException e) {
+      // rethrow validation exception
+      throw e;
+    } catch (Exception e) {
+      throw new InvalidStageException(String.format("Failed to check tracking status. Error: %s", e.getMessage()), e);
     }
   }
 
   @Override
   public JavaDStream<StructuredRecord> getStream(StreamingContext context) throws Exception {
+    context.registerLineage(conf.referenceName);
+
     // get change information dtream. This dstream has both schema and data changes
     LOG.info("Creating change information dstream");
-    ClassTag<StructuredRecord> tag = scala.reflect.ClassTag$.MODULE$.apply(StructuredRecord.class);
-    CTInputDStream dstream = new CTInputDStream(context.getSparkStreamingContext().ssc(), tag, dbConnection);
+    ClassTag<StructuredRecord> tag = ClassTag$.MODULE$.apply(StructuredRecord.class);
+    CTInputDStream dstream = new CTInputDStream(context.getSparkStreamingContext().ssc(), dbConnection);
     return JavaDStream.fromDStream(dstream, tag)
       .mapToPair(structuredRecord -> new Tuple2<>("", structuredRecord))
       // map the dstream with schema state store to detect changes in schema
@@ -74,7 +87,10 @@ public class CTSQLServer extends StreamingSource<StructuredRecord> {
       .mapToPair(record -> new Tuple2<>(record.getSchema().getRecordName(), record))
       // sort by key so that all DDLRecord comes first
       .transformToPair(pairRDD -> pairRDD.sortByKey())
-      .map(Tuple2::_2);
+      .map(Tuple2::_2)
+      .map(changeRecord -> StructuredRecord.builder(Schemas.CHANGE_SCHEMA)
+        .set(Schemas.CHANGE_FIELD, changeRecord)
+        .build());
   }
 
   private void checkDBCTEnabled(Connection connection, String dbName) throws SQLException {
@@ -88,29 +104,30 @@ public class CTSQLServer extends StreamingSource<StructuredRecord> {
         }
       }
     }
-    throw new IllegalArgumentException(String.format("Change Tracking is not enabled on the specified database '%s'." +
+    throw new InvalidStageException(String.format("Change Tracking is not enabled on the specified database '%s'." +
       " Please enable it first.", dbName));
   }
 
   private String getConnectionString() {
-    return String.format("jdbc:sqlserver://%s:%s;DatabaseName=%s", conf.hostname, conf.port, conf.dbName);
+    return String.format("jdbc:sqlserver://%s:%s;DatabaseName=%s", conf.getHostname(), conf.getPort(),
+                         conf.getDbName());
   }
 
   private static Function4<Time, String, Optional<StructuredRecord>, State<Map<String, String>>,
-      Optional<StructuredRecord>> schemaStateFunction() {
+    Optional<StructuredRecord>> schemaStateFunction() {
     return (time, key, value, state) -> {
       if (!value.isPresent()) {
         return Optional.empty();
       }
       StructuredRecord input = value.get();
       // for dml record we don't need to maintain any state so skip it
-      if (ResultSetToDMLRecord.RECORD_NAME.equalsIgnoreCase(input.getSchema().getRecordName())) {
+      if (Schemas.DML_SCHEMA.getRecordName().equals(input.getSchema().getRecordName())) {
         return Optional.of(input);
       }
 
       // we know now that its a ddl record so process it
-      String tableName = input.get("table");
-      String tableSchemaStructure = input.get("schema");
+      String tableName = input.get(Schemas.TABLE_FIELD);
+      String tableSchemaStructure = input.get(Schemas.SCHEMA_FIELD);
       Map<String, String> newState;
       if (state.exists()) {
         newState = state.get();

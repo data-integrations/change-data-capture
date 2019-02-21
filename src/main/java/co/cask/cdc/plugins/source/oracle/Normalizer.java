@@ -16,10 +16,10 @@
 
 package co.cask.cdc.plugins.source.oracle;
 
-import co.cask.cdap.api.common.Bytes;
 import co.cask.cdap.api.data.format.StructuredRecord;
 import co.cask.cdap.api.data.schema.Schema;
 import co.cask.cdc.plugins.common.AvroConverter;
+import co.cask.cdc.plugins.common.Schemas;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import org.apache.avro.generic.GenericDatumReader;
@@ -29,10 +29,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -44,9 +43,6 @@ import java.util.Objects;
 public class Normalizer {
   private static final Logger LOG = LoggerFactory.getLogger(Normalizer.class);
   private static final Gson GSON = new Gson();
-  private static final Schema DDL_SCHEMA = Schema.recordOf("DDLRecord",
-                                                           Schema.Field.of("table", Schema.of(Schema.Type.STRING)),
-                                                           Schema.Field.of("schema", Schema.of(Schema.Type.STRING)));
 
   private static final String INPUT_FIELD = "message";
 
@@ -68,30 +64,22 @@ public class Normalizer {
     if ("GenericWrapperSchema".equals(input.getSchema().getRecordName())) {
       // Do nothing for the generic wrapper schema message
       // Return empty list
-      return new ArrayList<>();
+      return Collections.emptyList();
     }
 
-    byte[] messageBytes;
-    if (message instanceof ByteBuffer) {
-      ByteBuffer bb = (ByteBuffer) message;
-      messageBytes = new byte[bb.remaining()];
-      bb.mark();
-      bb.get(messageBytes);
-      bb.reset();
-    } else {
-      messageBytes = (byte[]) message;
-    }
+    byte[] messageBytes = BinaryMessages.getBytesFromBinaryMessage(message);
 
-    String messageBody = new String(messageBytes, StandardCharsets.UTF_8);
-    if ("DDLRecord".equals(input.getSchema().getRecordName())) {
+    if (input.getSchema().getRecordName().equals(Schemas.DDL_SCHEMA.getRecordName())) {
+      String messageBody = new String(messageBytes, StandardCharsets.UTF_8);
       JsonObject schemaObj = GSON.fromJson(messageBody, JsonObject.class);
       String namespaceName = schemaObj.get("namespace").getAsString();
       String tableName = schemaObj.get("name").getAsString();
       tableName = namespaceName + "." + tableName;
-      StructuredRecord.Builder builder = StructuredRecord.builder(DDL_SCHEMA);
-      builder.set("table", tableName);
-      builder.set("schema", getNormalizedDDLSchema(messageBody));
-      return Arrays.asList(builder.build());
+      StructuredRecord ddlRecord = StructuredRecord.builder(Schemas.DDL_SCHEMA)
+        .set(Schemas.TABLE_FIELD, tableName)
+        .set(Schemas.SCHEMA_FIELD, getNormalizedDDLSchema(messageBody))
+        .build();
+      return Collections.singletonList(ddlRecord);
     }
 
     // Current message is the Wrapped Avro binary message
@@ -104,9 +92,7 @@ public class Normalizer {
     String tableName = genericRecord.get("table_name").toString();
     long schameHashId = (Long) genericRecord.get("schema_fingerprint");
 
-    byte[] payload = genericRecord.get("payload") instanceof ByteBuffer
-      ? Bytes.toBytes((ByteBuffer) genericRecord.get("payload"))
-      : (byte[]) genericRecord.get("payload");
+    byte[] payload = BinaryMessages.getBytesFromBinaryMessage(genericRecord.get("payload"));
 
     org.apache.avro.Schema avroSchema = new org.apache.avro.Schema.Parser().parse(schemaCacheMap.get(schameHashId));
     LOG.debug("Avro schema {} for table {} with fingerprint {}", avroSchema, tableName, schameHashId);
@@ -236,23 +222,18 @@ public class Normalizer {
   }
 
   private StructuredRecord createDMLRecord(String tableName, String opType, List<String> primaryKeys,
-                                           Map<Schema.Field, Object> changedFields) {
-    Schema changeSchema = Schema.recordOf("change", changedFields.keySet());
-    StructuredRecord.Builder changeBuilder = StructuredRecord.builder(changeSchema);
+                                           Map<Schema.Field, Object> changedFields) throws IOException {
+    Schema changeSchema = Schema.recordOf(Schemas.CHANGED_ROWS_RECORD, changedFields.keySet());
+    Map<String, Object> changes = new HashMap<>();
     for (Map.Entry<Schema.Field, Object> entry : changedFields.entrySet()) {
-      changeBuilder.set(entry.getKey().getName(), entry.getValue());
+      changes.put(entry.getKey().getName(), entry.getValue());
     }
-
-    Schema dmlSchema = Schema.recordOf("DMLRecord", Schema.Field.of("table", Schema.of(Schema.Type.STRING)),
-                                       Schema.Field.of("op_type", Schema.of(Schema.Type.STRING)),
-                                       Schema.Field.of("primary_keys", Schema.arrayOf(Schema.of(Schema.Type.STRING))),
-                                       Schema.Field.of("change", changeSchema));
-
-    StructuredRecord.Builder builder = StructuredRecord.builder(dmlSchema);
-    builder.set("table", tableName);
-    builder.set("op_type", opType);
-    builder.set("primary_keys", primaryKeys);
-    builder.set("change", changeBuilder.build());
-    return builder.build();
+    return StructuredRecord.builder(Schemas.DML_SCHEMA)
+      .set(Schemas.TABLE_FIELD, tableName)
+      .set(Schemas.OP_TYPE_FIELD, opType)
+      .set(Schemas.PRIMARY_KEYS_FIELD, primaryKeys)
+      .set(Schemas.UPDATE_SCHEMA_FIELD, changeSchema.toString())
+      .set(Schemas.UPDATE_VALUES_FIELD, changes)
+      .build();
   }
 }
