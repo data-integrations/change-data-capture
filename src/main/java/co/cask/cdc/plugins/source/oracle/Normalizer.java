@@ -19,7 +19,7 @@ package co.cask.cdc.plugins.source.oracle;
 import co.cask.cdap.api.data.format.StructuredRecord;
 import co.cask.cdap.api.data.schema.Schema;
 import co.cask.cdc.plugins.common.AvroConverter;
-import co.cask.cdc.plugins.common.Schemes;
+import co.cask.cdc.plugins.common.Schemas;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import org.apache.avro.generic.GenericDatumReader;
@@ -69,15 +69,15 @@ public class Normalizer {
 
     byte[] messageBytes = BinaryMessages.getBytesFromBinaryMessage(message);
 
-    if (input.getSchema().getRecordName().equals(Schemes.DDL_SCHEMA.getRecordName())) {
+    if (input.getSchema().getRecordName().equals(Schemas.DDL_SCHEMA.getRecordName())) {
       String messageBody = new String(messageBytes, StandardCharsets.UTF_8);
       JsonObject schemaObj = GSON.fromJson(messageBody, JsonObject.class);
       String namespaceName = schemaObj.get("namespace").getAsString();
       String tableName = schemaObj.get("name").getAsString();
       tableName = namespaceName + "." + tableName;
-      StructuredRecord ddlRecord = StructuredRecord.builder(Schemes.DDL_SCHEMA)
-        .set(Schemes.TABLE_FIELD, tableName)
-        .set(Schemes.SCHEMA_FIELD, getNormalizedDDLSchema(messageBody))
+      StructuredRecord ddlRecord = StructuredRecord.builder(Schemas.DDL_SCHEMA)
+        .set(Schemas.TABLE_FIELD, tableName)
+        .set(Schemas.SCHEMA_FIELD, getNormalizedDDLSchema(messageBody))
         .build();
       return Collections.singletonList(ddlRecord);
     }
@@ -223,17 +223,17 @@ public class Normalizer {
 
   private StructuredRecord createDMLRecord(String tableName, String opType, List<String> primaryKeys,
                                            Map<Schema.Field, Object> changedFields) throws IOException {
-    Schema changeSchema = Schema.recordOf(Schemes.CHANGED_ROWS_RECORD, changedFields.keySet());
+    Schema changeSchema = Schema.recordOf(Schemas.CHANGED_ROWS_RECORD, changedFields.keySet());
     Map<String, Object> changes = new HashMap<>();
     for (Map.Entry<Schema.Field, Object> entry : changedFields.entrySet()) {
       changes.put(entry.getKey().getName(), entry.getValue());
     }
-    return StructuredRecord.builder(Schemes.DML_SCHEMA)
-      .set(Schemes.TABLE_FIELD, tableName)
-      .set(Schemes.OP_TYPE_FIELD, opType)
-      .set(Schemes.PRIMARY_KEYS_FIELD, primaryKeys)
-      .set(Schemes.UPDATE_SCHEMA_FIELD, changeSchema.toString())
-      .set(Schemes.UPDATE_VALUES_FIELD, changes)
+    return StructuredRecord.builder(Schemas.DML_SCHEMA)
+      .set(Schemas.TABLE_FIELD, tableName)
+      .set(Schemas.OP_TYPE_FIELD, opType)
+      .set(Schemas.PRIMARY_KEYS_FIELD, primaryKeys)
+      .set(Schemas.UPDATE_SCHEMA_FIELD, changeSchema.toString())
+      .set(Schemas.UPDATE_VALUES_FIELD, changes)
       .build();
   }
 }

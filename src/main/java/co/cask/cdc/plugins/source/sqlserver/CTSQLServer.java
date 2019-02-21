@@ -9,7 +9,7 @@ import co.cask.cdap.etl.api.PipelineConfigurer;
 import co.cask.cdap.etl.api.streaming.StreamingContext;
 import co.cask.cdap.etl.api.streaming.StreamingSource;
 import co.cask.cdap.etl.api.validation.InvalidStageException;
-import co.cask.cdc.plugins.common.Schemes;
+import co.cask.cdc.plugins.common.Schemas;
 import co.cask.hydrator.common.Constants;
 import org.apache.spark.api.java.Optional;
 import org.apache.spark.api.java.function.Function4;
@@ -51,7 +51,7 @@ public class CTSQLServer extends StreamingSource<StructuredRecord> {
   public void configurePipeline(PipelineConfigurer pipelineConfigurer) {
     conf.validate();
     pipelineConfigurer.createDataset(conf.referenceName, Constants.EXTERNAL_DATASET_TYPE, DatasetProperties.EMPTY);
-    pipelineConfigurer.getStageConfigurer().setOutputSchema(Schemes.CHANGE_SCHEMA);
+    pipelineConfigurer.getStageConfigurer().setOutputSchema(Schemas.CHANGE_SCHEMA);
 
     if (conf.getUsername() != null && conf.getPassword() != null) {
       LOG.info("Creating connection with url {}, username {}, password *****",
@@ -88,8 +88,8 @@ public class CTSQLServer extends StreamingSource<StructuredRecord> {
       // sort by key so that all DDLRecord comes first
       .transformToPair(pairRDD -> pairRDD.sortByKey())
       .map(Tuple2::_2)
-      .map(changeRecord -> StructuredRecord.builder(Schemes.CHANGE_SCHEMA)
-        .set(Schemes.CHANGE_FIELD, changeRecord)
+      .map(changeRecord -> StructuredRecord.builder(Schemas.CHANGE_SCHEMA)
+        .set(Schemas.CHANGE_FIELD, changeRecord)
         .build());
   }
 
@@ -121,13 +121,13 @@ public class CTSQLServer extends StreamingSource<StructuredRecord> {
       }
       StructuredRecord input = value.get();
       // for dml record we don't need to maintain any state so skip it
-      if (Schemes.DML_SCHEMA.getRecordName().equals(input.getSchema().getRecordName())) {
+      if (Schemas.DML_SCHEMA.getRecordName().equals(input.getSchema().getRecordName())) {
         return Optional.of(input);
       }
 
       // we know now that its a ddl record so process it
-      String tableName = input.get(Schemes.TABLE_FIELD);
-      String tableSchemaStructure = input.get(Schemes.SCHEMA_FIELD);
+      String tableName = input.get(Schemas.TABLE_FIELD);
+      String tableSchemaStructure = input.get(Schemas.SCHEMA_FIELD);
       Map<String, String> newState;
       if (state.exists()) {
         newState = state.get();

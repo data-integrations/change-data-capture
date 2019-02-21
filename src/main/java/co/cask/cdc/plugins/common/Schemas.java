@@ -10,7 +10,7 @@ import java.util.stream.Collectors;
 /**
  * Helper class with common cdc schemes definitions.
  */
-public class Schemes {
+public class Schemas {
 
   private static final Schema SIMPLE_TYPES = Schema.unionOf(Arrays.stream(Type.values())
                                                               .filter(Type::isSimpleType)
@@ -50,7 +50,7 @@ public class Schemes {
     return namespacedTableName.split("\\.")[1];
   }
 
-  private Schemes() {
+  private Schemas() {
     // utility class
   }
 }

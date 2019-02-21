@@ -19,7 +19,7 @@ package co.cask.cdc.plugins.sink;
 import co.cask.cdap.api.common.Bytes;
 import co.cask.cdap.api.data.format.StructuredRecord;
 import co.cask.cdap.api.data.schema.Schema;
-import co.cask.cdc.plugins.common.Schemes;
+import co.cask.cdc.plugins.common.Schemas;
 import com.google.common.base.Preconditions;
 import org.apache.hadoop.hbase.HColumnDescriptor;
 import org.apache.hadoop.hbase.HTableDescriptor;
@@ -69,10 +69,10 @@ public class CDCTableUtil {
    * @param dmlRecord the StructuredRecord containing the CDC data
    */
   public static void updateHBaseTable(Table table, StructuredRecord dmlRecord) throws Exception {
-    String operationType = dmlRecord.get(Schemes.OP_TYPE_FIELD);
-    List<String> primaryKeys = dmlRecord.get(Schemes.PRIMARY_KEYS_FIELD);
-    Schema updateSchema = Schema.parseJson((String) dmlRecord.get(Schemes.UPDATE_SCHEMA_FIELD));
-    Map<String, Object> changes = dmlRecord.get(Schemes.UPDATE_VALUES_FIELD);
+    String operationType = dmlRecord.get(Schemas.OP_TYPE_FIELD);
+    List<String> primaryKeys = dmlRecord.get(Schemas.PRIMARY_KEYS_FIELD);
+    Schema updateSchema = Schema.parseJson((String) dmlRecord.get(Schemas.UPDATE_SCHEMA_FIELD));
+    Map<String, Object> changes = dmlRecord.get(Schemas.UPDATE_VALUES_FIELD);
 
     switch (operationType) {
       case "I":

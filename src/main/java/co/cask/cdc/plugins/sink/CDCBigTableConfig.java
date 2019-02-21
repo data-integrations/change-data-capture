@@ -75,13 +75,11 @@ public class CDCBigTableConfig extends ReferencePluginConfig {
                                                  "Please specify a project id.", PROJECT);
     }
     String serviceAccountFilePath = resolveServiceAccountFilePath();
-    if (!containsMacro(SERVICE_ACCOUNT_FILE_PATH)) {
-      if (serviceAccountFilePath != null) {
-        File serviceAccountFile = new File(serviceAccountFilePath);
-        if (!serviceAccountFile.exists()) {
-          throw new InvalidConfigPropertyException(String.format("File '%s' does not exist", serviceAccountFilePath),
-                                                   SERVICE_ACCOUNT_FILE_PATH);
-        }
+    if (!containsMacro(SERVICE_ACCOUNT_FILE_PATH) && serviceAccountFilePath != null) {
+      File serviceAccountFile = new File(serviceAccountFilePath);
+      if (!serviceAccountFile.exists()) {
+        throw new InvalidConfigPropertyException(String.format("File '%s' does not exist", serviceAccountFilePath),
+                                                 SERVICE_ACCOUNT_FILE_PATH);
       }
     }
   }

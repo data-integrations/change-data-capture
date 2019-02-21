@@ -25,7 +25,7 @@ import co.cask.cdap.etl.api.batch.SparkExecutionPluginContext;
 import co.cask.cdap.etl.api.batch.SparkPluginContext;
 import co.cask.cdap.etl.api.batch.SparkSink;
 import co.cask.cdap.etl.api.validation.InvalidStageException;
-import co.cask.cdc.plugins.common.Schemes;
+import co.cask.cdc.plugins.common.Schemas;
 import com.google.common.collect.Sets;
 import org.apache.kudu.ColumnSchema;
 import org.apache.kudu.Type;
@@ -69,20 +69,20 @@ public class CDCKudu extends SparkSink<StructuredRecord> {
   @Override
   public void configurePipeline(PipelineConfigurer pipelineConfigurer) {
     config.validate();
-    if (!Schemes.CHANGE_SCHEMA.isCompatible(pipelineConfigurer.getStageConfigurer().getInputSchema())) {
+    if (!Schemas.CHANGE_SCHEMA.isCompatible(pipelineConfigurer.getStageConfigurer().getInputSchema())) {
       throw new InvalidStageException("Input schema is incompatible with change record schema");
     }
   }
 
   private boolean updateKuduTableSchema(KuduClient client, StructuredRecord ddlRecord) throws Exception {
-    String tableName = Schemes.getTableName(ddlRecord.get(Schemes.TABLE_FIELD));
+    String tableName = Schemas.getTableName(ddlRecord.get(Schemas.TABLE_FIELD));
     if (!existingTables.contains(tableName) && !client.tableExists(tableName)) {
       // Table does not exists in the Kudu yet.
       // Creation of table will be attempted when we first see the DML Record.
       // Since at that point we know the primary keys to used.
       return false;
     }
-    Schema newSchema = Schema.parseJson((String) ddlRecord.get(Schemes.SCHEMA_FIELD));
+    Schema newSchema = Schema.parseJson((String) ddlRecord.get(Schemas.SCHEMA_FIELD));
 
     KuduTable table = client.openTable(tableName);
     org.apache.kudu.Schema kuduTableSchema = table.getSchema();
@@ -137,11 +137,11 @@ public class CDCKudu extends SparkSink<StructuredRecord> {
 
   private void updateKuduTableRecord(KuduClient client, KuduSession session, StructuredRecord dmlRecord)
     throws Exception {
-    String tableName = Schemes.getTableName(dmlRecord.get(Schemes.TABLE_FIELD));
-    String operationType = dmlRecord.get(Schemes.OP_TYPE_FIELD);
-    List<String> primaryKeys = dmlRecord.get(Schemes.PRIMARY_KEYS_FIELD);
-    Schema updateSchema = Schema.parseJson((String) dmlRecord.get(Schemes.UPDATE_SCHEMA_FIELD));
-    Map<String, Object> updateValues = dmlRecord.get(Schemes.UPDATE_VALUES_FIELD);
+    String tableName = Schemas.getTableName(dmlRecord.get(Schemas.TABLE_FIELD));
+    String operationType = dmlRecord.get(Schemas.OP_TYPE_FIELD);
+    List<String> primaryKeys = dmlRecord.get(Schemas.PRIMARY_KEYS_FIELD);
+    Schema updateSchema = Schema.parseJson((String) dmlRecord.get(Schemas.UPDATE_SCHEMA_FIELD));
+    Map<String, Object> updateValues = dmlRecord.get(Schemas.UPDATE_VALUES_FIELD);
     List<Schema.Field> fields = updateSchema.getFields();
     if (!existingTables.contains(tableName) && !client.tableExists(tableName)) {
       createKuduTable(client, tableName, fields, primaryKeys);
@@ -355,8 +355,8 @@ public class CDCKudu extends SparkSink<StructuredRecord> {
 
           while (structuredRecordIterator.hasNext()) {
             StructuredRecord input = structuredRecordIterator.next();
-            StructuredRecord changeRecord = input.get(Schemes.CHANGE_FIELD);
-            if (changeRecord.getSchema().getRecordName().equals(Schemes.DDL_SCHEMA.getRecordName())) {
+            StructuredRecord changeRecord = input.get(Schemas.CHANGE_FIELD);
+            if (changeRecord.getSchema().getRecordName().equals(Schemas.DDL_SCHEMA.getRecordName())) {
               if (updateKuduTableSchema(client, changeRecord)) {
                 // Schema for the table is updated. Flush the session now
                 session.flush();

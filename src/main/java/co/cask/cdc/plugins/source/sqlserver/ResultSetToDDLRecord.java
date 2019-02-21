@@ -2,7 +2,7 @@ package co.cask.cdc.plugins.source.sqlserver;
 
 import co.cask.cdap.api.data.format.StructuredRecord;
 import co.cask.cdap.api.data.schema.Schema;
-import co.cask.cdc.plugins.common.Schemes;
+import co.cask.cdc.plugins.common.Schemas;
 import co.cask.hydrator.plugin.DBUtils;
 import com.google.common.base.Joiner;
 import org.apache.spark.api.java.function.Function;
@@ -27,9 +27,9 @@ public class ResultSetToDDLRecord implements Function<ResultSet, StructuredRecor
   @Override
   public StructuredRecord call(ResultSet row) throws SQLException {
     Schema tableSchema = Schema.recordOf("schema", DBUtils.getSchemaFields(row));
-    return StructuredRecord.builder(Schemes.DDL_SCHEMA)
-      .set(Schemes.TABLE_FIELD, Joiner.on(".").join(schemaName, tableName))
-      .set(Schemes.SCHEMA_FIELD, tableSchema.toString())
+    return StructuredRecord.builder(Schemas.DDL_SCHEMA)
+      .set(Schemas.TABLE_FIELD, Joiner.on(".").join(schemaName, tableName))
+      .set(Schemas.SCHEMA_FIELD, tableSchema.toString())
       .build();
   }
 }

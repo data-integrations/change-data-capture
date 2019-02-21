@@ -24,7 +24,7 @@ import co.cask.cdap.etl.api.batch.SparkExecutionPluginContext;
 import co.cask.cdap.etl.api.batch.SparkPluginContext;
 import co.cask.cdap.etl.api.batch.SparkSink;
 import co.cask.cdap.etl.api.validation.InvalidStageException;
-import co.cask.cdc.plugins.common.Schemes;
+import co.cask.cdc.plugins.common.Schemas;
 import co.cask.cdc.plugins.common.SparkConfigs;
 import co.cask.hydrator.common.batch.JobUtils;
 import org.apache.hadoop.conf.Configuration;
@@ -58,7 +58,7 @@ public class CDCHBase extends SparkSink<StructuredRecord> {
   @Override
   public void configurePipeline(PipelineConfigurer pipelineConfigurer) {
     config.validate();
-    if (!Schemes.CHANGE_SCHEMA.isCompatible(pipelineConfigurer.getStageConfigurer().getInputSchema())) {
+    if (!Schemas.CHANGE_SCHEMA.isCompatible(pipelineConfigurer.getStageConfigurer().getInputSchema())) {
       throw new InvalidStageException("Input schema is incompatible with change record schema");
     }
   }
@@ -72,9 +72,9 @@ public class CDCHBase extends SparkSink<StructuredRecord> {
            Admin hBaseAdmin = conn.getAdmin()) {
         while (structuredRecordIterator.hasNext()) {
           StructuredRecord input = structuredRecordIterator.next();
-          StructuredRecord changeRecord = input.get(Schemes.CHANGE_FIELD);
-          String tableName = Schemes.getTableName(changeRecord.get(Schemes.TABLE_FIELD));
-          if (changeRecord.getSchema().getRecordName().equals(Schemes.DDL_SCHEMA.getRecordName())) {
+          StructuredRecord changeRecord = input.get(Schemas.CHANGE_FIELD);
+          String tableName = Schemas.getTableName(changeRecord.get(Schemas.TABLE_FIELD));
+          if (changeRecord.getSchema().getRecordName().equals(Schemas.DDL_SCHEMA.getRecordName())) {
             CDCTableUtil.createHBaseTable(hBaseAdmin, tableName);
           } else {
             Table table = hBaseAdmin.getConnection().getTable(TableName.valueOf(tableName));

@@ -2,7 +2,7 @@ package co.cask.cdc.plugins.source.sqlserver;
 
 import co.cask.cdap.api.data.format.StructuredRecord;
 import co.cask.cdap.api.data.schema.Schema;
-import co.cask.cdc.plugins.common.Schemes;
+import co.cask.cdc.plugins.common.Schemas;
 import co.cask.hydrator.plugin.DBUtils;
 import com.google.common.base.Joiner;
 import com.google.common.collect.Lists;
@@ -33,12 +33,12 @@ public class ResultSetToDMLRecord implements Function<ResultSet, StructuredRecor
   @Override
   public StructuredRecord call(ResultSet row) throws SQLException {
     Schema changeSchema = getChangeSchema(row);
-    return StructuredRecord.builder(Schemes.DML_SCHEMA)
-      .set(Schemes.TABLE_FIELD, Joiner.on(".").join(tableInformation.getSchemaName(), tableInformation.getName()))
-      .set(Schemes.PRIMARY_KEYS_FIELD, Lists.newArrayList(tableInformation.getPrimaryKeys()))
-      .set(Schemes.OP_TYPE_FIELD, row.getString("SYS_CHANGE_OPERATION"))
-      .set(Schemes.UPDATE_SCHEMA_FIELD, changeSchema.toString())
-      .set(Schemes.UPDATE_VALUES_FIELD, getChangeData(row, changeSchema))
+    return StructuredRecord.builder(Schemas.DML_SCHEMA)
+      .set(Schemas.TABLE_FIELD, Joiner.on(".").join(tableInformation.getSchemaName(), tableInformation.getName()))
+      .set(Schemas.PRIMARY_KEYS_FIELD, Lists.newArrayList(tableInformation.getPrimaryKeys()))
+      .set(Schemas.OP_TYPE_FIELD, row.getString("SYS_CHANGE_OPERATION"))
+      .set(Schemas.UPDATE_SCHEMA_FIELD, changeSchema.toString())
+      .set(Schemas.UPDATE_VALUES_FIELD, getChangeData(row, changeSchema))
       .build();
   }
 
@@ -61,7 +61,7 @@ public class ResultSetToDMLRecord implements Function<ResultSet, StructuredRecor
   private static Schema getChangeSchema(ResultSet resultSet) throws SQLException {
     List<Schema.Field> schemaFields = DBUtils.getSchemaFields(resultSet);
     // drop first three columns as they are from change tracking tables and does not represent the change data
-    return Schema.recordOf(Schemes.CHANGED_ROWS_RECORD,
+    return Schema.recordOf(Schemas.CHANGED_ROWS_RECORD,
                            schemaFields.subList(CHANGE_TABLE_COLUMNS_SIZE, schemaFields.size()));
   }
 

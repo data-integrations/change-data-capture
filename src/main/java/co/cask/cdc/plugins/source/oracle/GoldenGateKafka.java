@@ -25,7 +25,7 @@ import co.cask.cdap.api.dataset.DatasetProperties;
 import co.cask.cdap.etl.api.PipelineConfigurer;
 import co.cask.cdap.etl.api.streaming.StreamingContext;
 import co.cask.cdap.etl.api.streaming.StreamingSource;
-import co.cask.cdc.plugins.common.Schemes;
+import co.cask.cdc.plugins.common.Schemas;
 import co.cask.hydrator.common.Constants;
 import kafka.api.OffsetRequest;
 import kafka.api.PartitionOffsetRequestInfo;
@@ -95,7 +95,7 @@ public class GoldenGateKafka extends StreamingSource<StructuredRecord> {
   public void configurePipeline(PipelineConfigurer pipelineConfigurer) throws IllegalArgumentException {
     conf.validate();
     pipelineConfigurer.createDataset(conf.referenceName, Constants.EXTERNAL_DATASET_TYPE, DatasetProperties.EMPTY);
-    pipelineConfigurer.getStageConfigurer().setOutputSchema(Schemes.CHANGE_SCHEMA);
+    pipelineConfigurer.getStageConfigurer().setOutputSchema(Schemas.CHANGE_SCHEMA);
 
     // Make sure that Golden Gate kafka topic only have single partition
     SimpleConsumer consumer = new SimpleConsumer(conf.getHost(), conf.getPort(), 20 * 1000, 128 * 1024,
@@ -136,8 +136,8 @@ public class GoldenGateKafka extends StreamingSource<StructuredRecord> {
       .mapToPair(record -> new Tuple2<>("", record))
       .mapWithState(StateSpec.function(schemaStateFunction()))
       .flatMap(record -> NORMALIZER.transform(record).iterator())
-      .map(changeRecord -> StructuredRecord.builder(Schemes.CHANGE_SCHEMA)
-        .set(Schemes.CHANGE_FIELD, changeRecord)
+      .map(changeRecord -> StructuredRecord.builder(Schemas.CHANGE_SCHEMA)
+        .set(Schemas.CHANGE_FIELD, changeRecord)
         .build());
   }
 
