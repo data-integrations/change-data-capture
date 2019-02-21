@@ -2,9 +2,8 @@
 
 Description
 -----------
-CDAP Realtime Plugin for Change Data Capture (CDC) in HBase.
-
-This plugin will use connection parameter from system Hadoop cluster.
+This plugin takes input from a CDC source and writes the changes to HBase. 
+It will write to the HBase instance running on the cluster.
 
 All CDC sink plugins are normally used in conjunction with CDC source plugins. 
 CDC sink expects messages in CDC format as an input.  

@@ -35,11 +35,6 @@ applications or building plugins for appplications. You can expect questions fro
 users, release announcements, and any other discussions that we think will be helpful
 to the users.
 
-## Slack Team
-
-CDAP Users on Slack: [cdap-users team](https://cdap-users.herokuapp.com)
-
-
 # License and Trademarks
 
 Copyright © 2016-2019 Cask Data, Inc.

@@ -1,8 +1,8 @@
-# Change Tracking SQL Server Streaming Source
+# CDC SQL Server Streaming Source
 
 Description
 -----------
-CDAP Realtime Plugin for EDW offloading from SQL Server through Change Tracking.
+This plugin reads Change Data Capture (CDC) events from SQL Server through Change Tracking.
 
 All CDC source plugins are normally used in conjunction with CDC sink plugins. 
 CDC source produces messages in CDC format.  

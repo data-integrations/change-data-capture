@@ -1,8 +1,8 @@
-# Change Tracking SQL Server Streaming Source
+# CDC SQL Server Streaming Source
 
 Description
 -----------
-CDAP Realtime Plugin for Change Data Capture (CDC) in Kudu.
+This plugin takes input from a CDC source and writes the changes to Kudu.
 
 All CDC sink plugins are normally used in conjunction with CDC source plugins. 
 CDC sink expects messages in CDC format as an input.  

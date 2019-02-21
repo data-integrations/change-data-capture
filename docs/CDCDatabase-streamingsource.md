@@ -1,8 +1,8 @@
-# Change Tracking SQL Server Streaming Source
+# CDC SQL Server Streaming Source
 
 Description
 -----------
-Streaming source for reading through Golden Gate Kafka topic.
+This plugin reads Change Data Capture (CDC) events from a Golden Gate Kafka topic.
 
 All CDC source plugins are normally used in conjunction with CDC sink plugins. 
 CDC source produces messages in CDC format.  

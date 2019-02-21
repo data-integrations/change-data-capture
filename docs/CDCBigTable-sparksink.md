@@ -1,8 +1,8 @@
-# CDC Google Bigtable Sink
+# CDC Google Cloud Bigtable Sink
 
 Description
 -----------
-CDAP Realtime Plugin for Change Data Capture (CDC) in Google Bigtable. 
+This plugin takes input from a CDC source and writes the changes to Cloud Bigtable.
 
 All CDC sink plugins are normally used in conjunction with CDC source plugins. 
 CDC sink expects messages in CDC format as an input.  
@@ -23,7 +23,7 @@ Properties
 ----------
 **Reference Name**: Name used to uniquely identify this source for lineage, annotating metadata, etc.
 
-**Instance ID**: The Instance Id the Bigtable is in.
+**Instance ID**: The Instance Id the Cloud Bigtable is in.
 
 **Project ID**: Google Cloud Project ID, which uniquely identifies a project.
 It can be found on the Dashboard in the Google Cloud Platform Console. This is the project
@@ -36,11 +36,15 @@ When running on other clusters, the file must be present on every node in the cl
 
 Usage Notes
 -----------
-This plugin supports table creation and table modification on a Google Bigtable project. We recommend placing a normalizer transformation plugin before this plugin. It converts inputs into standard Data Definition Language (DDL) and Data Manipulation Language (DML) records that can be parsed by this plugin.
+This plugin supports table creation and table modification on a Cloud Bigtable project. 
+We recommend placing a normalizer transformation plugin before this plugin. 
+It converts inputs into standard Data Definition Language (DDL) and Data Manipulation Language (DML) records that 
+can be parsed by this plugin.
 
 Table Creation
 --------------
-When the plugin receives a DDL record, it creates a table in the target Google Bigtable project. The name of the table is specified in the DDL record. Below is a sample DDL Record that creates a table with name `TESTANOTHER`.
+When the plugin receives a DDL record, it creates a table in the target Cloud Bigtable project. The name of the table 
+is specified in the DDL record. Below is a sample DDL Record that creates a table with name `TESTANOTHER`.
 ```{
   "schema": {
     "type": "RECORD",
@@ -88,7 +92,8 @@ When the plugin receives a DDL record, it creates a table in the target Google B
 
 Table Modification
 --------------
-When the plugin receives a DML record, it modifies the corresponding table according to the operation specified in `op_type`. 
+When the plugin receives a DML record, it modifies the corresponding table according to the operation specified in 
+`op_type`. 
 
 | op\_type | Operation |
 | :--------------: | :--------------: |
@@ -96,7 +101,9 @@ When the plugin receives a DML record, it modifies the corresponding table accor
 | U | Update | 
 | D | Delete |
 
-The content of the changes is listed in the `change` field. The `primary_keys` field specifies the fields in `change` that will be used to name a row in the table. Below is a sample DML record that creates a row for `Scott` and inserts his information into the row.
+The content of the changes is listed in the `change` field. The `primary_keys` field specifies the fields in `change` 
+that will be used to name a row in the table. Below is a sample DML record that creates a row for `Scott` and inserts 
+his information into the row.
 ```
 {
   "table": "EMPLOYEE",
