@@ -25,6 +25,7 @@ import co.cask.cdap.etl.api.batch.SparkExecutionPluginContext;
 import co.cask.cdap.etl.api.batch.SparkPluginContext;
 import co.cask.cdap.etl.api.batch.SparkSink;
 import co.cask.cdap.etl.api.validation.InvalidStageException;
+import co.cask.cdc.plugins.common.OperationType;
 import co.cask.cdc.plugins.common.Schemas;
 import com.google.common.collect.Sets;
 import org.apache.kudu.ColumnSchema;
@@ -138,7 +139,7 @@ public class CDCKudu extends SparkSink<StructuredRecord> {
   private void updateKuduTableRecord(KuduClient client, KuduSession session, StructuredRecord dmlRecord)
     throws Exception {
     String tableName = Schemas.getTableName(dmlRecord.get(Schemas.TABLE_FIELD));
-    String operationType = dmlRecord.get(Schemas.OP_TYPE_FIELD);
+    OperationType operationType = OperationType.valueOf(dmlRecord.get(Schemas.OP_TYPE_FIELD));
     List<String> primaryKeys = dmlRecord.get(Schemas.PRIMARY_KEYS_FIELD);
     Schema updateSchema = Schema.parseJson((String) dmlRecord.get(Schemas.UPDATE_SCHEMA_FIELD));
     Map<String, Object> updateValues = dmlRecord.get(Schemas.UPDATE_VALUES_FIELD);
@@ -151,21 +152,21 @@ public class CDCKudu extends SparkSink<StructuredRecord> {
     KuduTable table = client.openTable(tableName);
     HashSet<String> primaryKeysSet = new HashSet<>(primaryKeys);
     switch (operationType) {
-      case "I":
+      case INSERT:
         Insert insert = table.newInsert();
         for (Schema.Field field : fields) {
           addColumnDataBasedOnType(insert.getRow(), field, updateValues.get(field.getName()), primaryKeysSet);
         }
         session.apply(insert);
         break;
-      case "U":
+      case UPDATE:
         Update update = table.newUpdate();
         for (Schema.Field field : fields) {
           addColumnDataBasedOnType(update.getRow(), field, updateValues.get(field.getName()), primaryKeysSet);
         }
         session.apply(update);
         break;
-      case "D":
+      case DELETE:
         Delete delete = table.newDelete();
         for (String keyColumn : primaryKeys) {
           for (Schema.Field field : fields) {
@@ -355,14 +356,16 @@ public class CDCKudu extends SparkSink<StructuredRecord> {
 
           while (structuredRecordIterator.hasNext()) {
             StructuredRecord input = structuredRecordIterator.next();
-            StructuredRecord changeRecord = input.get(Schemas.CHANGE_FIELD);
-            if (changeRecord.getSchema().getRecordName().equals(Schemas.DDL_SCHEMA.getRecordName())) {
-              if (updateKuduTableSchema(client, changeRecord)) {
+            StructuredRecord ddlRecord = input.get(Schemas.DDL_FIELD);
+            if (ddlRecord != null) {
+              if (updateKuduTableSchema(client, ddlRecord)) {
                 // Schema for the table is updated. Flush the session now
                 session.flush();
               }
-            } else {
-              updateKuduTableRecord(client, session, changeRecord);
+            }
+            StructuredRecord dmlRecord = input.get(Schemas.DML_FIELD);
+            if (dmlRecord != null) {
+              updateKuduTableRecord(client, session, dmlRecord);
             }
           }
         } finally {

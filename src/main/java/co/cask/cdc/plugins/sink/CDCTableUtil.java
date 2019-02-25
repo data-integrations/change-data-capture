@@ -19,6 +19,7 @@ package co.cask.cdc.plugins.sink;
 import co.cask.cdap.api.common.Bytes;
 import co.cask.cdap.api.data.format.StructuredRecord;
 import co.cask.cdap.api.data.schema.Schema;
+import co.cask.cdc.plugins.common.OperationType;
 import co.cask.cdc.plugins.common.Schemas;
 import com.google.common.base.Preconditions;
 import org.apache.hadoop.hbase.HColumnDescriptor;
@@ -69,14 +70,14 @@ public class CDCTableUtil {
    * @param dmlRecord the StructuredRecord containing the CDC data
    */
   public static void updateHBaseTable(Table table, StructuredRecord dmlRecord) throws Exception {
-    String operationType = dmlRecord.get(Schemas.OP_TYPE_FIELD);
+    OperationType operationType = OperationType.valueOf(dmlRecord.get(Schemas.OP_TYPE_FIELD));
     List<String> primaryKeys = dmlRecord.get(Schemas.PRIMARY_KEYS_FIELD);
     Schema updateSchema = Schema.parseJson((String) dmlRecord.get(Schemas.UPDATE_SCHEMA_FIELD));
     Map<String, Object> changes = dmlRecord.get(Schemas.UPDATE_VALUES_FIELD);
 
     switch (operationType) {
-      case "I":
-      case "U":
+      case INSERT:
+      case UPDATE:
         Put put = new Put(getRowKey(primaryKeys, changes));
         for (Schema.Field field : updateSchema.getFields()) {
           setPutField(put, field, changes.get(field.getName()));
@@ -84,7 +85,7 @@ public class CDCTableUtil {
         table.put(put);
         LOG.debug("Putting row {}", Bytes.toString(getRowKey(primaryKeys, changes)));
         break;
-      case "D":
+      case DELETE:
         Delete delete = new Delete(getRowKey(primaryKeys, changes));
         table.delete(delete);
         LOG.debug("Deleting row {}", Bytes.toString(getRowKey(primaryKeys, changes)));

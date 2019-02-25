@@ -26,7 +26,7 @@ public class ResultSetToDDLRecord implements Function<ResultSet, StructuredRecor
 
   @Override
   public StructuredRecord call(ResultSet row) throws SQLException {
-    Schema tableSchema = Schema.recordOf("schema", DBUtils.getSchemaFields(row));
+    Schema tableSchema = Schema.recordOf(Schemas.SCHEMA_RECORD, DBUtils.getSchemaFields(row));
     return StructuredRecord.builder(Schemas.DDL_SCHEMA)
       .set(Schemas.TABLE_FIELD, Joiner.on(".").join(schemaName, tableName))
       .set(Schemas.SCHEMA_FIELD, tableSchema.toString())

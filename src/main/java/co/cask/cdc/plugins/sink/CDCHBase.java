@@ -72,13 +72,16 @@ public class CDCHBase extends SparkSink<StructuredRecord> {
            Admin hBaseAdmin = conn.getAdmin()) {
         while (structuredRecordIterator.hasNext()) {
           StructuredRecord input = structuredRecordIterator.next();
-          StructuredRecord changeRecord = input.get(Schemas.CHANGE_FIELD);
-          String tableName = Schemas.getTableName(changeRecord.get(Schemas.TABLE_FIELD));
-          if (changeRecord.getSchema().getRecordName().equals(Schemas.DDL_SCHEMA.getRecordName())) {
+          StructuredRecord ddlRecord = input.get(Schemas.DDL_FIELD);
+          if (ddlRecord != null) {
+            String tableName = Schemas.getTableName(ddlRecord.get(Schemas.TABLE_FIELD));
             CDCTableUtil.createHBaseTable(hBaseAdmin, tableName);
-          } else {
+          }
+          StructuredRecord dmlRecord = input.get(Schemas.DML_FIELD);
+          if (dmlRecord != null) {
+            String tableName = Schemas.getTableName(dmlRecord.get(Schemas.TABLE_FIELD));
             Table table = hBaseAdmin.getConnection().getTable(TableName.valueOf(tableName));
-            CDCTableUtil.updateHBaseTable(table, changeRecord);
+            CDCTableUtil.updateHBaseTable(table, dmlRecord);
           }
         }
       }

@@ -136,9 +136,7 @@ public class GoldenGateKafka extends StreamingSource<StructuredRecord> {
       .mapToPair(record -> new Tuple2<>("", record))
       .mapWithState(StateSpec.function(schemaStateFunction()))
       .flatMap(record -> NORMALIZER.transform(record).iterator())
-      .map(changeRecord -> StructuredRecord.builder(Schemas.CHANGE_SCHEMA)
-        .set(Schemas.CHANGE_FIELD, changeRecord)
-        .build());
+      .map(Schemas::toCDCRecord);
   }
 
   private Map<TopicAndPartition, Long> loadOffsets(SimpleConsumer consumer) {
