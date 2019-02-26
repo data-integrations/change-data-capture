@@ -404,7 +404,7 @@ public class CTSQLServerPluginTest extends CDCPluginTestBase {
 
       Assertions.assertThat(output)
         .withRepresentation(new StructuredRecordRepresentation())
-        .hasSameElementsAs(expectedCDCRecords);
+        .isEqualTo(expectedCDCRecords);
     }
   }
 }
