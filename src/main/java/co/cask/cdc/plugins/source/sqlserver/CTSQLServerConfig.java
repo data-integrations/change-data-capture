@@ -15,11 +15,11 @@ import javax.annotation.Nullable;
  */
 public class CTSQLServerConfig extends ReferencePluginConfig {
 
-  private static final String HOST_NAME = "hostname";
-  private static final String PORT = "port";
-  private static final String USERNAME = "username";
-  private static final String PASSWORD = "password";
-  private static final String DATABASE_NAME = "dbname";
+  public static final String HOST_NAME = "hostname";
+  public static final String PORT = "port";
+  public static final String USERNAME = "username";
+  public static final String PASSWORD = "password";
+  public static final String DATABASE_NAME = "dbname";
 
   @Name(HOST_NAME)
   @Description("SQL Server hostname. Ex: mysqlsever.net")

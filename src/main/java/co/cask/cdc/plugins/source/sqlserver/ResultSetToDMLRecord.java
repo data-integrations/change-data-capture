@@ -2,6 +2,7 @@ package co.cask.cdc.plugins.source.sqlserver;
 
 import co.cask.cdap.api.data.format.StructuredRecord;
 import co.cask.cdap.api.data.schema.Schema;
+import co.cask.cdc.plugins.common.OperationType;
 import co.cask.cdc.plugins.common.Schemas;
 import co.cask.hydrator.plugin.DBUtils;
 import com.google.common.base.Joiner;
@@ -36,10 +37,23 @@ public class ResultSetToDMLRecord implements Function<ResultSet, StructuredRecor
     return StructuredRecord.builder(Schemas.DML_SCHEMA)
       .set(Schemas.TABLE_FIELD, Joiner.on(".").join(tableInformation.getSchemaName(), tableInformation.getName()))
       .set(Schemas.PRIMARY_KEYS_FIELD, Lists.newArrayList(tableInformation.getPrimaryKeys()))
-      .set(Schemas.OP_TYPE_FIELD, row.getString("SYS_CHANGE_OPERATION"))
+      .set(Schemas.OP_TYPE_FIELD, getChangeOperation(row))
       .set(Schemas.UPDATE_SCHEMA_FIELD, changeSchema.toString())
       .set(Schemas.UPDATE_VALUES_FIELD, getChangeData(row, changeSchema))
       .build();
+  }
+
+  private static OperationType getChangeOperation(ResultSet row) throws SQLException {
+    String operation = row.getString("SYS_CHANGE_OPERATION");
+    switch (operation) {
+      case "I":
+        return OperationType.INSERT;
+      case "U":
+        return OperationType.UPDATE;
+      case "D":
+        return OperationType.DELETE;
+    }
+    throw new IllegalArgumentException(String.format("Unknown change operation '%s'", operation));
   }
 
   private static Map<String, Object> getChangeData(ResultSet resultSet, Schema changeSchema) throws SQLException {
@@ -61,7 +75,7 @@ public class ResultSetToDMLRecord implements Function<ResultSet, StructuredRecor
   private static Schema getChangeSchema(ResultSet resultSet) throws SQLException {
     List<Schema.Field> schemaFields = DBUtils.getSchemaFields(resultSet);
     // drop first three columns as they are from change tracking tables and does not represent the change data
-    return Schema.recordOf(Schemas.CHANGED_ROWS_RECORD,
+    return Schema.recordOf(Schemas.SCHEMA_RECORD,
                            schemaFields.subList(CHANGE_TABLE_COLUMNS_SIZE, schemaFields.size()));
   }
 

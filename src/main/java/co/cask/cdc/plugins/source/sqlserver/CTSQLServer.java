@@ -88,9 +88,7 @@ public class CTSQLServer extends StreamingSource<StructuredRecord> {
       // sort by key so that all DDLRecord comes first
       .transformToPair(pairRDD -> pairRDD.sortByKey())
       .map(Tuple2::_2)
-      .map(changeRecord -> StructuredRecord.builder(Schemas.CHANGE_SCHEMA)
-        .set(Schemas.CHANGE_FIELD, changeRecord)
-        .build());
+      .map(Schemas::toCDCRecord);
   }
 
   private void checkDBCTEnabled(Connection connection, String dbName) throws SQLException {

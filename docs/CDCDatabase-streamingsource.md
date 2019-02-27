@@ -9,7 +9,7 @@ CDC source produces messages in CDC format.
 
 Useful links:
 * [Goldengate site](https://www.oracle.com/middleware/technologies/goldengate.html)
-* [Setup tutorial](https://docs.oracle.com/en/middleware/goldengate/core/18.1/oracle-db/replicating-data-oracle-autonomous-data-warehouse-cloud.html)
+* [Installing Oracle GoldenGate](https://docs.oracle.com/goldengate/1212/gg-winux/GIORA/install.htm#GIORA162).
 
 Properties
 ----------

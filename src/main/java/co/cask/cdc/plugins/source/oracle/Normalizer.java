@@ -19,6 +19,7 @@ package co.cask.cdc.plugins.source.oracle;
 import co.cask.cdap.api.data.format.StructuredRecord;
 import co.cask.cdap.api.data.schema.Schema;
 import co.cask.cdc.plugins.common.AvroConverter;
+import co.cask.cdc.plugins.common.OperationType;
 import co.cask.cdc.plugins.common.Schemas;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
@@ -74,9 +75,8 @@ public class Normalizer {
       JsonObject schemaObj = GSON.fromJson(messageBody, JsonObject.class);
       String namespaceName = schemaObj.get("namespace").getAsString();
       String tableName = schemaObj.get("name").getAsString();
-      tableName = namespaceName + "." + tableName;
       StructuredRecord ddlRecord = StructuredRecord.builder(Schemas.DDL_SCHEMA)
-        .set(Schemas.TABLE_FIELD, tableName)
+        .set(Schemas.TABLE_FIELD, namespaceName + "." + tableName)
         .set(Schemas.SCHEMA_FIELD, getNormalizedDDLSchema(messageBody))
         .build();
       return Collections.singletonList(ddlRecord);
@@ -115,8 +115,9 @@ public class Normalizer {
       }
     }
 
-    LOG.debug("Schema for DDL {}", Schema.recordOf("columns", columnFields));
-    return Schema.recordOf("columns", columnFields).toString();
+    Schema ddlSchema = Schema.recordOf(Schemas.SCHEMA_RECORD, columnFields);
+    LOG.debug("Schema for DDL {}", ddlSchema);
+    return ddlSchema.toString();
   }
 
   private org.apache.avro.Schema getGenericWrapperMessageSchema() {
@@ -148,10 +149,10 @@ public class Normalizer {
     // This table name contains "." in it already
     String tableName = record.get("table");
     List<String> primaryKeys = record.get("primary_keys");
-    String opType = record.get("op_type");
+    OperationType opType = OperationType.valueOf(record.get("op_type"));
     Map<Schema.Field, Object> suppliedFieldValues = new HashMap<>();
     switch (opType) {
-      case "I":
+      case INSERT:
         StructuredRecord insertRecord = record.get("after");
         for (Schema.Field field : insertRecord.getSchema().getFields()) {
           if (!field.getName().endsWith("_isMissing")) {
@@ -159,7 +160,7 @@ public class Normalizer {
           }
         }
         break;
-      case "U":
+      case UPDATE:
         StructuredRecord afterUpdateRecord = record.get("after");
         StructuredRecord beforeUpdateRecord = record.get("before");
         boolean pkChanged = primaryKeyChanged(primaryKeys, beforeUpdateRecord, afterUpdateRecord);
@@ -168,7 +169,7 @@ public class Normalizer {
           // We need to emit two records
           // One for DELETE and one for INSERT
           suppliedFieldValues = addDeleteFields(record);
-          normalizedRecords.add(createDMLRecord(tableName, "D", primaryKeys, suppliedFieldValues));
+          normalizedRecords.add(createDMLRecord(tableName, OperationType.DELETE, primaryKeys, suppliedFieldValues));
         }
 
         suppliedFieldValues.clear();
@@ -176,21 +177,19 @@ public class Normalizer {
           if (!field.getName().endsWith("_isMissing")) {
             String fieldName = field.getName();
             if (!((boolean) afterUpdateRecord.get(fieldName + "_isMissing"))) {
-              LOG.info("XXX Adding after field {}, {}", field.getName(), afterUpdateRecord.get(field.getName()));
               suppliedFieldValues.put(field, afterUpdateRecord.get(field.getName()));
             } else {
               // Field is not updated, use the field value from the before record
-              LOG.info("XXX Adding before field {}, {}", field.getName(), beforeUpdateRecord.get(field.getName()));
               suppliedFieldValues.put(field, beforeUpdateRecord.get(field.getName()));
             }
           }
         }
         if (pkChanged) {
           // Change the operation type to Insert if the primary key is changed
-          opType = "I";
+          opType = OperationType.INSERT;
         }
         break;
-      case "D":
+      case DELETE:
         suppliedFieldValues = addDeleteFields(record);
         break;
       default:
@@ -221,9 +220,9 @@ public class Normalizer {
     return fieldValues;
   }
 
-  private StructuredRecord createDMLRecord(String tableName, String opType, List<String> primaryKeys,
+  private StructuredRecord createDMLRecord(String tableName, OperationType opType, List<String> primaryKeys,
                                            Map<Schema.Field, Object> changedFields) throws IOException {
-    Schema changeSchema = Schema.recordOf(Schemas.CHANGED_ROWS_RECORD, changedFields.keySet());
+    Schema changeSchema = Schema.recordOf(Schemas.SCHEMA_RECORD, changedFields.keySet());
     Map<String, Object> changes = new HashMap<>();
     for (Map.Entry<Schema.Field, Object> entry : changedFields.entrySet()) {
       changes.put(entry.getKey().getName(), entry.getValue());

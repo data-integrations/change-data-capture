@@ -73,18 +73,21 @@ public class CDCBigTable extends SparkSink<StructuredRecord> {
            Admin hBaseAdmin = conn.getAdmin()) {
         while (structuredRecordIterator.hasNext()) {
           StructuredRecord input = structuredRecordIterator.next();
-          StructuredRecord changeRecord = input.get(Schemas.CHANGE_FIELD);
-          String tableName = Schemas.getTableName(changeRecord.get(Schemas.TABLE_FIELD));
-          if (changeRecord.getSchema().getRecordName().equals(Schemas.DDL_SCHEMA.getRecordName())) {
+          StructuredRecord ddlRecord = input.get(Schemas.DDL_FIELD);
+          if (ddlRecord != null) {
             // Notes: In BigTable, there no such thing as namespace.
             // Dots are allowed in table names, but colons are not.
             // If you try a table name with a colon in it, you will get:
             // io.grpc.StatusRuntimeException: INVALID_ARGUMENT: Invalid id for collection tables : \
             // Should match [_a-zA-Z0-9][-_.a-zA-Z0-9]* but found 'ns:abcd'
+            String tableName = Schemas.getTableName(ddlRecord.get(Schemas.TABLE_FIELD));
             CDCTableUtil.createHBaseTable(hBaseAdmin, tableName);
-          } else {
+          }
+          StructuredRecord dmlRecord = input.get(Schemas.DML_FIELD);
+          if (dmlRecord != null) {
+            String tableName = Schemas.getTableName(dmlRecord.get(Schemas.TABLE_FIELD));
             Table table = hBaseAdmin.getConnection().getTable(TableName.valueOf(tableName));
-            CDCTableUtil.updateHBaseTable(table, changeRecord);
+            CDCTableUtil.updateHBaseTable(table, dmlRecord);
           }
         }
       }

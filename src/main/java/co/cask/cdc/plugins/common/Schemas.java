@@ -1,10 +1,12 @@
 package co.cask.cdc.plugins.common;
 
+import co.cask.cdap.api.data.format.StructuredRecord;
 import co.cask.cdap.api.data.schema.Schema;
 import co.cask.cdap.api.data.schema.Schema.Field;
 import co.cask.cdap.api.data.schema.Schema.Type;
 
 import java.util.Arrays;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
@@ -17,12 +19,13 @@ public class Schemas {
                                                               .map(Schema::of)
                                                               .collect(Collectors.toList()));
 
-  public static final String CHANGED_ROWS_RECORD = "changedRows";
+  public static final String SCHEMA_RECORD = "schema";
   public static final String TABLE_FIELD = "table";
   public static final String SCHEMA_FIELD = "schema";
   public static final String OP_TYPE_FIELD = "op_type";
   public static final String PRIMARY_KEYS_FIELD = "primary_keys";
-  public static final String CHANGE_FIELD = "change";
+  public static final String DDL_FIELD = "ddl";
+  public static final String DML_FIELD = "dml";
   public static final String UPDATE_SCHEMA_FIELD = "rows_schema";
   public static final String UPDATE_VALUES_FIELD = "rows_values";
 
@@ -34,7 +37,7 @@ public class Schemas {
 
   public static final Schema DML_SCHEMA = Schema.recordOf(
     "DMLRecord",
-    Field.of(OP_TYPE_FIELD, Schema.of(Type.STRING)),
+    Field.of(OP_TYPE_FIELD, enumWith(OperationType.class)),
     Field.of(TABLE_FIELD, Schema.of(Type.STRING)),
     Field.of(PRIMARY_KEYS_FIELD, Schema.arrayOf(Schema.of(Type.STRING))),
     Field.of(UPDATE_SCHEMA_FIELD, Schema.of(Type.STRING)),
@@ -43,11 +46,36 @@ public class Schemas {
 
   public static final Schema CHANGE_SCHEMA = Schema.recordOf(
     "changeRecord",
-    Field.of(CHANGE_FIELD, Schema.unionOf(DDL_SCHEMA, DML_SCHEMA))
+    Field.of(DDL_FIELD, Schema.nullableOf(DDL_SCHEMA)),
+    Field.of(DML_FIELD, Schema.nullableOf(DML_SCHEMA))
   );
+
+  public static StructuredRecord toCDCRecord(StructuredRecord changeRecord) {
+    String recordName = changeRecord.getSchema().getRecordName();
+    if (Objects.equals(recordName, DDL_SCHEMA.getRecordName())) {
+      return StructuredRecord.builder(CHANGE_SCHEMA)
+        .set(DDL_FIELD, changeRecord)
+        .build();
+    } else if (Objects.equals(recordName, DML_SCHEMA.getRecordName())) {
+      return StructuredRecord.builder(CHANGE_SCHEMA)
+        .set(DML_FIELD, changeRecord)
+        .build();
+    }
+    throw new IllegalArgumentException(String.format("Wrong schema name '%s' for record", recordName));
+  }
 
   public static String getTableName(String namespacedTableName) {
     return namespacedTableName.split("\\.")[1];
+  }
+
+  private static Schema enumWith(Class<? extends Enum<?>> enumClass) {
+    // this method may be removed when Schema.enumWith() method signature fixed
+    Enum<?>[] enumConstants = enumClass.getEnumConstants();
+    String[] names = new String[enumConstants.length];
+    for (int i = 0; i < enumConstants.length; i++) {
+      names[i] = enumConstants[i].name();
+    }
+    return Schema.enumWith(names);
   }
 
   private Schemas() {
