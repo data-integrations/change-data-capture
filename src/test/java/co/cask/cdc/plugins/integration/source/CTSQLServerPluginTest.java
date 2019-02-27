@@ -44,11 +44,11 @@ import java.util.stream.Collectors;
 @RunWith(Enclosed.class)
 public class CTSQLServerPluginTest extends CDCPluginTestBase {
   private static final String PLUGIN_NAME = "CTSQLServer";
-  private static final String HOST = "localhost";
-  private static final String PORT = "1433";
-  private static final String USERNAME = "SA";
-  private static final String PASSWORD = "123Qwe123";
-  private static final String DB_NAMESPACE = "dbo";
+  private static final String HOST = System.getProperty("test.sql-server.host", "localhost");
+  private static final String PORT = System.getProperty("test.sql-server.port", "1433");
+  private static final String USERNAME = System.getProperty("test.sql-server.username", "SA");
+  private static final String PASSWORD = System.getProperty("test.sql-server.password", "123Qwe123");
+  private static final String DB_NAMESPACE = System.getProperty("test.sql-server.namespace", "dbo");
 
   private static void createDatabaseWithTracking(String dbName) throws SQLException {
     try (Connection connection = getConnectionToRoot();
@@ -174,8 +174,7 @@ public class CTSQLServerPluginTest extends CDCPluginTestBase {
       ETLPlugin sinkConfig = MockSink.getPlugin(outputTable);
 
       programManager = deployETL(sourceConfig, sinkConfig, "testChangesSource");
-      programManager.start();
-      programManager.waitForRun(ProgramRunStatus.RUNNING, 10, TimeUnit.SECONDS);
+      programManager.startAndWaitForRun(ProgramRunStatus.RUNNING, 10, TimeUnit.SECONDS);
 
       createTableWithTracking(dbTableName);
     }

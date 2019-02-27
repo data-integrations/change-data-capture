@@ -21,7 +21,30 @@ Following plugins are available in this repository.
   * Kudu Sink 
   * [Golden Gate Kafka Source](docs/oracle/Oracle.md)
   * [SQL Server Change Tracking Streaming Source](docs/CTSQLServer.md)
+  
+# Development
 
+## Run Integration Tests
+It is possible to run integration tests against **local** (see [Setup Local Environment](#setup-local-environment)) 
+or **remote environment**.
+
+To use **remote environment** you may configure the following system properties:
+* **test.sql-server.host** - SQL Server host. Default: localhost.
+* **test.sql-server.port** - SQL Server port. Default: 1433.
+* **test.sql-server.username** - SQL Server username. This user should have permissions to create databases.
+ Default: SA.
+* **test.sql-server.password** - SQL Server password. Default: 123Qwe123.
+* **test.sql-server.namespace** - SQL Server namespace for test databases. Default: dbo.
+
+## Setup Local Environment
+To start local environment you should:
+* [Install Docker Compose](https://docs.docker.com/compose/install/)
+* Run commands:
+  ```bash
+  cd docker-compose/cdc-env/
+  docker-compose up -d
+  ```
+ 
 # Contact
 
 ## Mailing Lists
