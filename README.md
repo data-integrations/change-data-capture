@@ -35,6 +35,12 @@ To use **remote environment** you may configure the following system properties:
  Default: SA.
 * **test.sql-server.password** - SQL Server password. Default: 123Qwe123.
 * **test.sql-server.namespace** - SQL Server namespace for test databases. Default: dbo.
+* **test.bigtable.project** - Google Cloud Project ID. Default: lookup from local environment.
+* **test.bigtable.instance** - Bigtable Instance ID. Default: null.
+* **test.bigtable.serviceFilePath** - Path on the local file system of the service account key used for
+  authorization. Default: lookup from local environment.
+  
+**NOTE:** Bigtable Sink tests will be skipped without provided properties.
 
 ## Setup Local Environment
 To start local environment you should:

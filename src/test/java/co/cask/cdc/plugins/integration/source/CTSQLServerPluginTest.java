@@ -42,7 +42,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @RunWith(Enclosed.class)
-public class CTSQLServerPluginTest extends CDCPluginTestBase {
+public class CTSQLServerPluginTest {
   private static final String PLUGIN_NAME = "CTSQLServer";
   private static final String HOST = System.getProperty("test.sql-server.host", "localhost");
   private static final String PORT = System.getProperty("test.sql-server.port", "1433");
@@ -182,9 +182,11 @@ public class CTSQLServerPluginTest extends CDCPluginTestBase {
     @After
     @Override
     public void afterTest() throws Exception {
-      programManager.stop();
-      programManager.waitForStopped(10, TimeUnit.SECONDS);
-      programManager.waitForRun(ProgramRunStatus.KILLED, 10, TimeUnit.SECONDS);
+      if (programManager != null) {
+        programManager.stop();
+        programManager.waitForStopped(10, TimeUnit.SECONDS);
+        programManager.waitForRun(ProgramRunStatus.KILLED, 10, TimeUnit.SECONDS);
+      }
       super.afterTest();
       dropDatabaseIfExists(dbName);
     }

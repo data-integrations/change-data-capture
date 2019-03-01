@@ -21,6 +21,7 @@ import co.cask.cdc.plugins.sink.CDCHBase;
 import co.cask.cdc.plugins.sink.CDCKudu;
 import co.cask.cdc.plugins.source.oracle.GoldenGateKafka;
 import co.cask.cdc.plugins.source.sqlserver.CTSQLServer;
+import com.codahale.metrics.MetricRegistry;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.slf4j.Logger;
@@ -36,14 +37,8 @@ public abstract class CDCPluginTestBase extends HydratorTestBase {
     new TestConfiguration(Constants.Explore.EXPLORE_ENABLED, false,
                           Constants.AppFabric.SPARK_COMPAT, Compat.SPARK_COMPAT);
 
-  private static int startCount;
-
   @BeforeClass
   public static void setupTest() throws Exception {
-    if (startCount++ > 0) {
-      return;
-    }
-
     LOG.info("Setting up application");
 
     setupStreamingArtifacts(APP_ARTIFACT_ID, DataStreamsApp.class);
@@ -53,11 +48,12 @@ public abstract class CDCPluginTestBase extends HydratorTestBase {
     addPluginArtifact(NamespaceId.DEFAULT.artifact("cdc-plugins", "1.0.0"),
                       APP_ARTIFACT_ID,
                       GoldenGateKafka.class, CTSQLServer.class,
-                      CDCBigTable.class, CDCHBase.class, CDCKudu.class);
+                      CDCBigTable.class, CDCHBase.class, CDCKudu.class,
+                      // Bigtable plugin dependencies
+                      MetricRegistry.class);
   }
 
-  protected SparkManager deployETL(ETLPlugin sourcePlugin, ETLPlugin sinkPlugin, String appName)
-    throws Exception {
+  protected SparkManager deployETL(ETLPlugin sourcePlugin, ETLPlugin sinkPlugin, String appName) throws Exception {
     ETLStage source = new ETLStage("source", sourcePlugin);
     ETLStage sink = new ETLStage("sink", sinkPlugin);
     DataStreamsConfig etlConfig = DataStreamsConfig.builder()

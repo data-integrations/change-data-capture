@@ -16,11 +16,11 @@ import javax.annotation.Nullable;
  * Defines the {@link PluginConfig} for the {@link CDCBigTable}.
  */
 public class CDCBigTableConfig extends ReferencePluginConfig {
-  private static final String AUTO_DETECT = "auto-detect";
+  public static final String AUTO_DETECT = "auto-detect";
 
-  private static final String INSTANCE = "instance";
-  private static final String PROJECT = "project";
-  private static final String SERVICE_ACCOUNT_FILE_PATH = "serviceFilePath";
+  public static final String INSTANCE = "instance";
+  public static final String PROJECT = "project";
+  public static final String SERVICE_ACCOUNT_FILE_PATH = "serviceFilePath";
 
   @Name(INSTANCE)
   @Description("BigTable instance id. " +
