@@ -19,8 +19,7 @@ import co.cask.cdap.api.annotation.Description;
 import co.cask.cdap.api.annotation.Macro;
 import co.cask.cdap.api.annotation.Name;
 import co.cask.cdap.etl.api.validation.InvalidConfigPropertyException;
-import co.cask.hydrator.common.IdUtils;
-import co.cask.hydrator.common.ReferencePluginConfig;
+import co.cask.cdc.plugins.common.CDCReferencePluginConfig;
 import org.apache.commons.lang3.ObjectUtils;
 
 import javax.annotation.Nullable;
@@ -28,7 +27,7 @@ import javax.annotation.Nullable;
 /**
  * Configurations to be used for Golden Gate Kafka source.
  */
-public class GoldenGateKafkaConfig extends ReferencePluginConfig {
+public class GoldenGateKafkaConfig extends CDCReferencePluginConfig {
 
   private static final long serialVersionUID = 8069169417140954175L;
 
@@ -41,13 +40,13 @@ public class GoldenGateKafkaConfig extends ReferencePluginConfig {
   @Description("Kafka broker specified in host:port form. For example, example.com:9092")
   @Macro
   @Nullable
-  private String broker;
+  private final String broker;
 
   @Name(TOPIC)
   @Description("Name of the topic to which Golden Gate publishes the DDL and DML changes.")
   @Macro
   @Nullable
-  private String topic;
+  private final String topic;
 
   @Name(DEFAULT_INITIAL_OFFSET)
   @Description("The default initial offset to read from. " +
@@ -55,7 +54,7 @@ public class GoldenGateKafkaConfig extends ReferencePluginConfig {
     "Offsets are inclusive. If an offset of 5 is used, the message at offset 5 will be read. ")
   @Macro
   @Nullable
-  private Long defaultInitialOffset;
+  private final Long defaultInitialOffset;
 
   @Name(MAX_RATE_PER_PARTITION)
   @Description("Max number of records to read per second per partition. 0 means there is no limit. Defaults to 1000.")
@@ -100,8 +99,9 @@ public class GoldenGateKafkaConfig extends ReferencePluginConfig {
    * Method to validate the broker address which should be in the form 'host:port'.
    * throws IllegalArgumentException if validation fails
    */
+  @Override
   public void validate() {
-    IdUtils.validateId(referenceName);
+    super.validate();
     try {
       getHost();
       getPort();

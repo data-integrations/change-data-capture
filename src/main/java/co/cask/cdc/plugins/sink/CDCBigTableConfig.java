@@ -5,9 +5,9 @@ import co.cask.cdap.api.annotation.Macro;
 import co.cask.cdap.api.annotation.Name;
 import co.cask.cdap.api.plugin.PluginConfig;
 import co.cask.cdap.etl.api.validation.InvalidConfigPropertyException;
-import co.cask.hydrator.common.IdUtils;
-import co.cask.hydrator.common.ReferencePluginConfig;
-import com.google.cloud.ServiceOptions;
+import co.cask.cdc.plugins.common.CDCReferencePluginConfig;
+import com.google.bigtable.repackaged.com.google.cloud.ServiceOptions;
+import com.google.common.base.Strings;
 
 import java.io.File;
 import javax.annotation.Nullable;
@@ -15,7 +15,7 @@ import javax.annotation.Nullable;
 /**
  * Defines the {@link PluginConfig} for the {@link CDCBigTable}.
  */
-public class CDCBigTableConfig extends ReferencePluginConfig {
+public class CDCBigTableConfig extends CDCReferencePluginConfig {
   public static final String AUTO_DETECT = "auto-detect";
 
   public static final String INSTANCE = "instance";
@@ -68,11 +68,15 @@ public class CDCBigTableConfig extends ReferencePluginConfig {
     return serviceAccountFilePath;
   }
 
+  @Override
   public void validate() {
-    IdUtils.validateId(referenceName);
+    super.validate();
     if (!containsMacro(PROJECT) && resolveProject() == null) {
       throw new InvalidConfigPropertyException("Could not detect Google Cloud project id from the environment. " +
                                                  "Please specify a project id.", PROJECT);
+    }
+    if (!containsMacro(INSTANCE) && Strings.isNullOrEmpty(instance)) {
+      throw new InvalidConfigPropertyException("Instance ID cannot be null or empty", INSTANCE);
     }
     String serviceAccountFilePath = resolveServiceAccountFilePath();
     if (!containsMacro(SERVICE_ACCOUNT_FILE_PATH) && serviceAccountFilePath != null) {

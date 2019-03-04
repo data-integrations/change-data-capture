@@ -5,15 +5,14 @@ import co.cask.cdap.api.annotation.Macro;
 import co.cask.cdap.api.annotation.Name;
 import co.cask.cdap.api.plugin.PluginConfig;
 import co.cask.cdap.etl.api.validation.InvalidConfigPropertyException;
-import co.cask.hydrator.common.IdUtils;
-import co.cask.hydrator.common.ReferencePluginConfig;
+import co.cask.cdc.plugins.common.CDCReferencePluginConfig;
 
 import javax.annotation.Nullable;
 
 /**
  * Defines the {@link PluginConfig} for the {@link CTSQLServer}.
  */
-public class CTSQLServerConfig extends ReferencePluginConfig {
+public class CTSQLServerConfig extends CDCReferencePluginConfig {
 
   public static final String HOST_NAME = "hostname";
   public static final String PORT = "port";
@@ -29,7 +28,7 @@ public class CTSQLServerConfig extends ReferencePluginConfig {
   @Name(PORT)
   @Description("SQL Server port. Defaults to 1433")
   @Macro
-  private int port;
+  private final int port;
 
   @Name(DATABASE_NAME)
   @Description("SQL Server database name. Note: CT must be enabled on the database for change tracking.")
@@ -41,14 +40,14 @@ public class CTSQLServerConfig extends ReferencePluginConfig {
     "need authentication. Optional for databases that do not require authentication.")
   @Nullable
   @Macro
-  private String username;
+  private final String username;
 
   @Name(PASSWORD)
   @Description("Password to use to connect to the specified database. Required for databases that " +
     "need authentication. Optional for databases that do not require authentication.")
   @Nullable
   @Macro
-  private String password;
+  private final String password;
 
   public CTSQLServerConfig() {
     super("");
@@ -89,8 +88,9 @@ public class CTSQLServerConfig extends ReferencePluginConfig {
     return password;
   }
 
+  @Override
   public void validate() {
-    IdUtils.validateId(referenceName);
+    super.validate();
     if (!containsMacro(PORT) && (port < 0 || port > 65535)) {
       throw new InvalidConfigPropertyException("Port number should be in range 0-65535", PORT);
     }
