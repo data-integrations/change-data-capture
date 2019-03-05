@@ -19,12 +19,9 @@ package co.cask.cdc.plugins.sink;
 import co.cask.cdap.etl.api.validation.InvalidConfigPropertyException;
 import co.cask.hydrator.common.Constants;
 import com.google.bigtable.repackaged.com.google.cloud.ServiceOptions;
-import org.assertj.core.api.Assertions;
 import org.junit.Assert;
 import org.junit.Assume;
 import org.junit.Test;
-
-import java.util.function.Consumer;
 
 public class CDCBigTableConfigTest {
   private static final String VALID_REF = "test-ref";
@@ -54,8 +51,12 @@ public class CDCBigTableConfigTest {
       VALID_ACCOUNT_FILE_PATH
     );
 
-    Assertions.assertThatThrownBy(config::validate)
-      .isInstanceOfSatisfying(InvalidConfigPropertyException.class, withProperty(Constants.Reference.REFERENCE_NAME));
+    try {
+      config.validate();
+      Assert.fail(String.format("Expected to throw %s", InvalidConfigPropertyException.class.getName()));
+    } catch (InvalidConfigPropertyException e) {
+      Assert.assertEquals(Constants.Reference.REFERENCE_NAME, e.getProperty());
+    }
   }
 
   @Test
@@ -67,9 +68,12 @@ public class CDCBigTableConfigTest {
       "/tmp/non_existing_file"
     );
 
-    Assertions.assertThatThrownBy(config::validate)
-      .isInstanceOfSatisfying(InvalidConfigPropertyException.class,
-                              withProperty(CDCBigTableConfig.SERVICE_ACCOUNT_FILE_PATH));
+    try {
+      config.validate();
+      Assert.fail(String.format("Expected to throw %s", InvalidConfigPropertyException.class.getName()));
+    } catch (InvalidConfigPropertyException e) {
+      Assert.assertEquals(CDCBigTableConfig.SERVICE_ACCOUNT_FILE_PATH, e.getProperty());
+    }
   }
 
   @Test
@@ -83,8 +87,12 @@ public class CDCBigTableConfigTest {
       VALID_ACCOUNT_FILE_PATH
     );
 
-    Assertions.assertThatThrownBy(config::validate)
-      .isInstanceOfSatisfying(InvalidConfigPropertyException.class, withProperty(CDCBigTableConfig.PROJECT));
+    try {
+      config.validate();
+      Assert.fail(String.format("Expected to throw %s", InvalidConfigPropertyException.class.getName()));
+    } catch (InvalidConfigPropertyException e) {
+      Assert.assertEquals(CDCBigTableConfig.PROJECT, e.getProperty());
+    }
   }
 
   @Test
@@ -96,8 +104,12 @@ public class CDCBigTableConfigTest {
       VALID_ACCOUNT_FILE_PATH
     );
 
-    Assertions.assertThatThrownBy(config::validate)
-      .isInstanceOfSatisfying(InvalidConfigPropertyException.class, withProperty(CDCBigTableConfig.INSTANCE));
+    try {
+      config.validate();
+      Assert.fail(String.format("Expected to throw %s", InvalidConfigPropertyException.class.getName()));
+    } catch (InvalidConfigPropertyException e) {
+      Assert.assertEquals(CDCBigTableConfig.INSTANCE, e.getProperty());
+    }
   }
 
   @Test
@@ -109,8 +121,7 @@ public class CDCBigTableConfigTest {
       VALID_ACCOUNT_FILE_PATH
     );
 
-    Assertions.assertThat(config.resolveProject())
-      .isEqualTo(ServiceOptions.getDefaultProjectId());
+    Assert.assertEquals(ServiceOptions.getDefaultProjectId(), config.resolveProject());
   }
 
   @Test
@@ -122,8 +133,7 @@ public class CDCBigTableConfigTest {
       VALID_ACCOUNT_FILE_PATH
     );
 
-    Assertions.assertThat(config.resolveProject())
-      .isEqualTo(ServiceOptions.getDefaultProjectId());
+    Assert.assertEquals(ServiceOptions.getDefaultProjectId(), config.resolveProject());
   }
 
   @Test
@@ -135,8 +145,7 @@ public class CDCBigTableConfigTest {
       null
     );
 
-    Assertions.assertThat(config.resolveServiceAccountFilePath())
-      .isNull();
+    Assert.assertNull(config.resolveServiceAccountFilePath());
   }
 
   @Test
@@ -148,11 +157,6 @@ public class CDCBigTableConfigTest {
       CDCBigTableConfig.AUTO_DETECT
     );
 
-    Assertions.assertThat(config.resolveServiceAccountFilePath())
-      .isNull();
-  }
-
-  private static Consumer<InvalidConfigPropertyException> withProperty(String property) {
-    return e -> Assert.assertEquals(property, e.getProperty());
+    Assert.assertNull(config.resolveServiceAccountFilePath());
   }
 }
