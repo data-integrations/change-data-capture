@@ -1,3 +1,19 @@
+/*
+ * Copyright © 2019 Cask Data, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
 package co.cask.cdc.plugins.integration;
 
 import co.cask.cdap.api.artifact.ArtifactSummary;
@@ -21,6 +37,7 @@ import co.cask.cdc.plugins.sink.CDCHBase;
 import co.cask.cdc.plugins.sink.CDCKudu;
 import co.cask.cdc.plugins.source.oracle.GoldenGateKafka;
 import co.cask.cdc.plugins.source.sqlserver.CTSQLServer;
+import com.codahale.metrics.MetricRegistry;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.slf4j.Logger;
@@ -36,14 +53,8 @@ public abstract class CDCPluginTestBase extends HydratorTestBase {
     new TestConfiguration(Constants.Explore.EXPLORE_ENABLED, false,
                           Constants.AppFabric.SPARK_COMPAT, Compat.SPARK_COMPAT);
 
-  private static int startCount;
-
   @BeforeClass
   public static void setupTest() throws Exception {
-    if (startCount++ > 0) {
-      return;
-    }
-
     LOG.info("Setting up application");
 
     setupStreamingArtifacts(APP_ARTIFACT_ID, DataStreamsApp.class);
@@ -53,11 +64,12 @@ public abstract class CDCPluginTestBase extends HydratorTestBase {
     addPluginArtifact(NamespaceId.DEFAULT.artifact("cdc-plugins", "1.0.0"),
                       APP_ARTIFACT_ID,
                       GoldenGateKafka.class, CTSQLServer.class,
-                      CDCBigTable.class, CDCHBase.class, CDCKudu.class);
+                      CDCBigTable.class, CDCHBase.class, CDCKudu.class,
+                      // Bigtable plugin dependencies
+                      MetricRegistry.class);
   }
 
-  protected SparkManager deployETL(ETLPlugin sourcePlugin, ETLPlugin sinkPlugin, String appName)
-    throws Exception {
+  protected SparkManager deployETL(ETLPlugin sourcePlugin, ETLPlugin sinkPlugin, String appName) throws Exception {
     ETLStage source = new ETLStage("source", sourcePlugin);
     ETLStage sink = new ETLStage("sink", sinkPlugin);
     DataStreamsConfig etlConfig = DataStreamsConfig.builder()

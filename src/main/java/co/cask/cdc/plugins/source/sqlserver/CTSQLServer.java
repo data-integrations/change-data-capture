@@ -83,11 +83,6 @@ public class CTSQLServer extends StreamingSource<StructuredRecord> {
       // map the dstream with schema state store to detect changes in schema
       // filter out the ddl record whose schema hasn't changed and then drop all the keys
       .mapWithState(StateSpec.function(schemaStateFunction()))
-      // key by record name DDLRecord or DMLRecord and the record
-      .mapToPair(record -> new Tuple2<>(record.getSchema().getRecordName(), record))
-      // sort by key so that all DDLRecord comes first
-      .transformToPair(pairRDD -> pairRDD.sortByKey())
-      .map(Tuple2::_2)
       .map(Schemas::toCDCRecord);
   }
 

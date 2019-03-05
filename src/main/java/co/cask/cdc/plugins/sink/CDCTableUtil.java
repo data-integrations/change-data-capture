@@ -46,7 +46,7 @@ public class CDCTableUtil {
 
   private static final Logger LOG = LoggerFactory.getLogger(CDCTableUtil.class);
 
-  private static final String CDC_COLUMN_FAMILY = "cdc";
+  public static final String CDC_COLUMN_FAMILY = "cdc";
 
   /**
    * Creates a table using the HBase Admin API.
@@ -130,16 +130,20 @@ public class CDCTableUtil {
         put.addColumn(Bytes.toBytes(CDC_COLUMN_FAMILY), Bytes.toBytes(column), Bytes.toBytes((Boolean) val));
         break;
       case INT:
-        put.addColumn(Bytes.toBytes(CDC_COLUMN_FAMILY), Bytes.toBytes(column), Bytes.toBytes((Integer) val));
+        put.addColumn(Bytes.toBytes(CDC_COLUMN_FAMILY), Bytes.toBytes(column),
+                      Bytes.toBytes(((Number) val).intValue()));
         break;
       case LONG:
-        put.addColumn(Bytes.toBytes(CDC_COLUMN_FAMILY), Bytes.toBytes(column), Bytes.toBytes((Long) val));
+        put.addColumn(Bytes.toBytes(CDC_COLUMN_FAMILY), Bytes.toBytes(column),
+                      Bytes.toBytes(((Number) val).longValue()));
         break;
       case FLOAT:
-        put.addColumn(Bytes.toBytes(CDC_COLUMN_FAMILY), Bytes.toBytes(column), Bytes.toBytes((Float) val));
+        put.addColumn(Bytes.toBytes(CDC_COLUMN_FAMILY), Bytes.toBytes(column),
+                      Bytes.toBytes(((Number) val).floatValue()));
         break;
       case DOUBLE:
-        put.addColumn(Bytes.toBytes(CDC_COLUMN_FAMILY), Bytes.toBytes(column), Bytes.toBytes((Double) val));
+        put.addColumn(Bytes.toBytes(CDC_COLUMN_FAMILY), Bytes.toBytes(column),
+                      Bytes.toBytes(((Number) val).doubleValue()));
         break;
       case BYTES:
         if (val instanceof ByteBuffer) {

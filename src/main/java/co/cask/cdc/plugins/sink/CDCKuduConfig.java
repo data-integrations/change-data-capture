@@ -19,8 +19,7 @@ package co.cask.cdc.plugins.sink;
 import co.cask.cdap.api.annotation.Description;
 import co.cask.cdap.api.annotation.Macro;
 import co.cask.cdap.api.annotation.Name;
-import co.cask.hydrator.common.IdUtils;
-import co.cask.hydrator.common.ReferencePluginConfig;
+import co.cask.cdc.plugins.common.CDCReferencePluginConfig;
 import org.apache.kudu.ColumnSchema;
 
 import javax.annotation.Nullable;
@@ -28,7 +27,7 @@ import javax.annotation.Nullable;
 /**
  * Configurations for the Kudu.
  */
-public class CDCKuduConfig extends ReferencePluginConfig {
+public class CDCKuduConfig extends CDCReferencePluginConfig {
 
   // Required Fields.
 
@@ -89,10 +88,6 @@ public class CDCKuduConfig extends ReferencePluginConfig {
 
   public CDCKuduConfig(String referenceName) {
     super(referenceName);
-  }
-
-  public void validate() {
-    IdUtils.validateId(referenceName);
   }
 
   /**

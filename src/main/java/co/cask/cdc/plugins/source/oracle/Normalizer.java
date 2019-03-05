@@ -229,7 +229,7 @@ public class Normalizer {
     }
     return StructuredRecord.builder(Schemas.DML_SCHEMA)
       .set(Schemas.TABLE_FIELD, tableName)
-      .set(Schemas.OP_TYPE_FIELD, opType)
+      .set(Schemas.OP_TYPE_FIELD, opType.name())
       .set(Schemas.PRIMARY_KEYS_FIELD, primaryKeys)
       .set(Schemas.UPDATE_SCHEMA_FIELD, changeSchema.toString())
       .set(Schemas.UPDATE_VALUES_FIELD, changes)
