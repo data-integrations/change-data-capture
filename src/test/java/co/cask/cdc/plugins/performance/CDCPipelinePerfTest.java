@@ -54,9 +54,9 @@ import java.sql.Statement;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-public class CDCPipelinePT extends CDCPluginPerfTestBase {
-  private static final Logger LOG = LoggerFactory.getLogger(CDCPipelinePT.class);
-  private static final String APP_NAME = CDCPipelinePT.class.getSimpleName();
+public class CDCPipelinePerfTest extends CDCPluginPerfTestBase {
+  private static final Logger LOG = LoggerFactory.getLogger(CDCPipelinePerfTest.class);
+  private static final String APP_NAME = CDCPipelinePerfTest.class.getSimpleName();
 
   // Common properties
   private static final boolean TEST_DATA_LOAD =
@@ -97,7 +97,7 @@ public class CDCPipelinePT extends CDCPluginPerfTestBase {
 
     super.setUp();
 
-    dbName = CDCPipelinePT.class.getSimpleName() + '_' + testName.getMethodName();
+    dbName = CDCPipelinePerfTest.class.getSimpleName() + '_' + testName.getMethodName();
     dbTableName = testName.getMethodName();
 
     connection = BigtableOperations.connect(BIGTABLE_PROJECT, BIGTABLE_INSTANCE, BIGTABLE_SERVICE_ACCOUNT_FILE_PATH);

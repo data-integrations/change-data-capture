@@ -27,7 +27,7 @@ import co.cask.cdap.test.SparkManager;
 import co.cask.cdc.plugins.common.BigtableOperations;
 import co.cask.cdc.plugins.common.OperationType;
 import co.cask.cdc.plugins.common.Schemas;
-import co.cask.cdc.plugins.integration.CDCPluginTestBase;
+import co.cask.cdc.plugins.integration.CDCPluginIntegrationTestBase;
 import co.cask.cdc.plugins.sink.CDCBigTableConfig;
 import co.cask.cdc.plugins.sink.CDCTableUtil;
 import co.cask.hydrator.common.Constants;
@@ -58,9 +58,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public class CDCBigTablePluginTest extends CDCPluginTestBase {
+public class CDCBigTablePluginIntegrationTest extends CDCPluginIntegrationTestBase {
   private static final String PLUGIN_NAME = "CDCBigTable";
-  private static final String APP_NAME = CDCBigTablePluginTest.class.getSimpleName();
+  private static final String APP_NAME = CDCBigTablePluginIntegrationTest.class.getSimpleName();
   private static final String PROJECT
     = System.getProperty("test.bigtable.project", ServiceOptions.getDefaultProjectId());
   private static final String INSTANCE = System.getProperty("test.bigtable.instance");

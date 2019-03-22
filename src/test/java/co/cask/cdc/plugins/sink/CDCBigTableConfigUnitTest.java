@@ -23,12 +23,12 @@ import org.junit.Assert;
 import org.junit.Assume;
 import org.junit.Test;
 
-public class CDCBigTableConfigTest {
+public class CDCBigTableConfigUnitTest {
   private static final String VALID_REF = "test-ref";
   private static final String VALID_PROJECT = "test-project";
   private static final String VALID_INSTANCE = "test-instance";
   private static final String VALID_ACCOUNT_FILE_PATH
-    = CDCBigTableConfigTest.class.getResource("/credentials.json").getPath();
+    = CDCBigTableConfigUnitTest.class.getResource("/credentials.json").getPath();
 
   @Test
   public void testValidateValidConfig() {

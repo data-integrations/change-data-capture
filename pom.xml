@@ -112,7 +112,7 @@
               <version>2.14.1</version>
               <configuration>
                 <includes>
-                  <include>**/*PT.java</include>
+                  <include>**/*PerfTest.java</include>
                 </includes>
               </configuration>
             </plugin>
@@ -808,7 +808,8 @@
             <java.io.tmpdir>${project.build.directory}</java.io.tmpdir>
           </systemPropertyVariables>
           <includes>
-            <include>**/*Test.java</include>
+            <include>**/*UnitTest.java</include>
+            <include>**/*IntegrationTest.java</include>
           </includes>
         </configuration>
       </plugin>
