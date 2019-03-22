@@ -24,19 +24,17 @@ import co.cask.cdap.etl.mock.spark.streaming.MockSource;
 import co.cask.cdap.etl.proto.v2.ETLPlugin;
 import co.cask.cdap.proto.ProgramRunStatus;
 import co.cask.cdap.test.SparkManager;
+import co.cask.cdc.plugins.common.BigtableOperations;
 import co.cask.cdc.plugins.common.OperationType;
 import co.cask.cdc.plugins.common.Schemas;
-import co.cask.cdc.plugins.integration.CDCPluginTestBase;
+import co.cask.cdc.plugins.integration.CDCPluginIntegrationTestBase;
 import co.cask.cdc.plugins.sink.CDCBigTableConfig;
 import co.cask.cdc.plugins.sink.CDCTableUtil;
 import co.cask.hydrator.common.Constants;
 import com.google.bigtable.repackaged.com.google.cloud.ServiceOptions;
 import com.google.bigtable.repackaged.io.grpc.StatusRuntimeException;
-import com.google.cloud.bigtable.hbase.BigtableConfiguration;
-import com.google.cloud.bigtable.hbase.BigtableOptionsFactory;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Connection;
 import org.apache.hadoop.hbase.client.Get;
@@ -53,7 +51,6 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
 
-import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -61,9 +58,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public class CDCBigTablePluginTest extends CDCPluginTestBase {
+public class CDCBigTablePluginIntegrationTest extends CDCPluginIntegrationTestBase {
   private static final String PLUGIN_NAME = "CDCBigTable";
-  private static final String APP_NAME = CDCBigTablePluginTest.class.getSimpleName();
+  private static final String APP_NAME = CDCBigTablePluginIntegrationTest.class.getSimpleName();
   private static final String PROJECT
     = System.getProperty("test.bigtable.project", ServiceOptions.getDefaultProjectId());
   private static final String INSTANCE = System.getProperty("test.bigtable.instance");
@@ -99,14 +96,9 @@ public class CDCBigTablePluginTest extends CDCPluginTestBase {
       .build();
     sinkConfig = new ETLPlugin(PLUGIN_NAME, SparkSink.PLUGIN_TYPE, props);
 
-    Configuration configuration = BigtableConfiguration.configure(PROJECT, INSTANCE);
-    if (SERVICE_ACCOUNT_FILE_PATH != null) {
-      configuration.set(BigtableOptionsFactory.BIGTABLE_SERVICE_ACCOUNT_JSON_KEYFILE_LOCATION_KEY,
-                        SERVICE_ACCOUNT_FILE_PATH);
-    }
-    connection = BigtableConfiguration.connect(configuration);
+    connection = BigtableOperations.connect(PROJECT, INSTANCE, SERVICE_ACCOUNT_FILE_PATH);
 
-    dropTableIfExists(connection, dbTableName);
+    BigtableOperations.dropTableIfExists(connection, dbTableName);
   }
 
   @After
@@ -119,7 +111,7 @@ public class CDCBigTablePluginTest extends CDCPluginTestBase {
     }
     super.afterTest();
     if (connection != null) {
-      dropTableIfExists(connection, dbTableName);
+      BigtableOperations.dropTableIfExists(connection, dbTableName);
       connection.close();
     }
   }
@@ -325,14 +317,6 @@ public class CDCBigTablePluginTest extends CDCPluginTestBase {
       Result result1 = table.get(new Get(Bytes.toBytes("1")));
       Assertions.assertThat(result1.isEmpty()).isTrue();
     });
-  }
-
-  private static void dropTableIfExists(Connection connection, String dbTableName) throws IOException {
-    TableName tableName = TableName.valueOf(dbTableName);
-    if (connection.getAdmin().tableExists(tableName)) {
-      connection.getAdmin().disableTable(tableName);
-      connection.getAdmin().deleteTable(tableName);
-    }
   }
 
   private static byte[] getColumnValue(Result result, String column) {

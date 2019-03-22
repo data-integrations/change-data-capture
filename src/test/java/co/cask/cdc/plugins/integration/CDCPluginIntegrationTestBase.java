@@ -43,8 +43,8 @@ import org.junit.ClassRule;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public abstract class CDCPluginTestBase extends HydratorTestBase {
-  private static final Logger LOG = LoggerFactory.getLogger(CDCPluginTestBase.class);
+public abstract class CDCPluginIntegrationTestBase extends HydratorTestBase {
+  private static final Logger LOG = LoggerFactory.getLogger(CDCPluginIntegrationTestBase.class);
   private static final ArtifactId APP_ARTIFACT_ID = NamespaceId.DEFAULT.artifact("data-streams", "1.0.0");
   private static final ArtifactSummary APP_ARTIFACT = new ArtifactSummary("data-streams", "1.0.0");
 

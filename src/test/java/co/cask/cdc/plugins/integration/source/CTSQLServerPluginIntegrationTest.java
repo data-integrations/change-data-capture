@@ -27,7 +27,7 @@ import co.cask.cdap.test.DataSetManager;
 import co.cask.cdap.test.SparkManager;
 import co.cask.cdc.plugins.common.OperationType;
 import co.cask.cdc.plugins.common.Schemas;
-import co.cask.cdc.plugins.integration.CDCPluginTestBase;
+import co.cask.cdc.plugins.integration.CDCPluginIntegrationTestBase;
 import co.cask.cdc.plugins.integration.StructuredRecordRepresentation;
 import co.cask.cdc.plugins.source.sqlserver.CTSQLServerConfig;
 import co.cask.hydrator.common.Constants;
@@ -58,7 +58,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @RunWith(Enclosed.class)
-public class CTSQLServerPluginTest {
+public class CTSQLServerPluginIntegrationTest {
   private static final String PLUGIN_NAME = "CTSQLServer";
   private static final String HOST = System.getProperty("test.sql-server.host", "localhost");
   private static final String PORT = System.getProperty("test.sql-server.port", "1433");
@@ -86,7 +86,7 @@ public class CTSQLServerPluginTest {
     return DriverManager.getConnection(connectionString, USERNAME, PASSWORD);
   }
 
-  public static class Validations extends CDCPluginTestBase {
+  public static class Validations extends CDCPluginIntegrationTestBase {
     @Rule
     public TestName testName = new TestName();
 
@@ -155,7 +155,7 @@ public class CTSQLServerPluginTest {
 
   }
 
-  public static class SuccessFlow extends CDCPluginTestBase {
+  public static class SuccessFlow extends CDCPluginIntegrationTestBase {
     @Rule
     public TestName testName = new TestName();
 
