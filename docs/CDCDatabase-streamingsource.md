@@ -20,8 +20,10 @@ Properties
 
 **Kafka Topic**: Name of the topic to which Golden Gate publishes the DDL and DML changes.
 
-**Default Initial Offset**: The default initial offset to read from. An offset of -2 means the smallest offset. 
-An offset of -1 means the latest offset. Defaults to -1. Offsets are inclusive. 
+**Default Initial Offset**: The default initial offset to read from. 
+An offset of -2 means the smallest offset (the beginning of the topic). 
+An offset of -1 means the latest offset (the end of the topic). 
+Defaults to -1. Offsets are inclusive. 
 If an offset of 5 is used, the message at offset 5 will be read.
 
 **Max Rate Per Partition**: Max number of records to read per second per partition. 0 means there is no limit.
