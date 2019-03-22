@@ -59,14 +59,15 @@ public class GoldenGateKafkaConfig extends CDCReferencePluginConfig {
   @Name(MAX_RATE_PER_PARTITION)
   @Description("Max number of records to read per second per partition. 0 means there is no limit. Defaults to 1000.")
   @Nullable
-  private Integer maxRatePerPartition;
+  private final Integer maxRatePerPartition;
 
   public GoldenGateKafkaConfig(String referenceName, @Nullable String broker, @Nullable String topic,
-                               @Nullable Long defaultInitialOffset) {
+                               @Nullable Long defaultInitialOffset, @Nullable Integer maxRatePerPartition) {
     super(referenceName);
     this.broker = broker;
     this.topic = topic;
     this.defaultInitialOffset = defaultInitialOffset;
+    this.maxRatePerPartition = maxRatePerPartition;
   }
 
   @Nullable
