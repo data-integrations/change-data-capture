@@ -28,6 +28,16 @@ Following plugins are available in this repository.
 It is possible to run integration tests against **local** (see [Setup Local Environment](#setup-local-environment)) 
 or **remote environment**.
 
+Run tests against **local** environment:
+```bash
+mvn clean test
+```
+
+Run tests against **remote** environment:
+```bash
+mvn clean test -DinstanceUri=<HostAndPort>
+```
+
 To use **remote environment** you may configure the following system properties:
 * **test.sql-server.host** - SQL Server host. Default: localhost.
 * **test.sql-server.port** - SQL Server port. Default: 1433.
@@ -38,6 +48,39 @@ To use **remote environment** you may configure the following system properties:
 * **test.bigtable.project** - Google Cloud Project ID. Default: lookup from local environment.
 * **test.bigtable.instance** - Bigtable Instance ID. Default: null.
 * **test.bigtable.serviceFilePath** - Path on the local file system of the service account key used for
+  authorization. Default: lookup from local environment.
+  
+**NOTE:** Bigtable Sink tests will be skipped without provided properties.
+
+## Run Performance Tests
+It is possible to run performance tests against **local** (see [Setup Local Environment](#setup-local-environment)) 
+or **remote environment**.
+
+Run tests against **local** environment:
+```bash
+mvn clean test -P perf-tests
+```
+
+Run tests against **remote** environment:
+```bash
+mvn clean test -P perf-tests -DinstanceUri=<HostAndPort>
+```
+
+Common system properties for tests:
+* **ptest.test-data.load** - Prepare and load test data to source storage. Default: true.
+* **ptest.test-data.inserts** - Number of records to prepare. Default: 5000.
+* **ptest.target-table-created-timeout.seconds** - Timeout for table creation in sink storage. Default: 300.
+* **ptest.data-transferred-timeout.seconds** - Timeout for data transfer to target storage. Default: 600.
+
+To use **remote environment** you may configure the following system properties:
+* **ptest.sql-server.host** - SQL Server host. Default: localhost.
+* **ptest.sql-server.port** - SQL Server port. Default: 1433.
+* **ptest.sql-server.username** - SQL Server username. This user should have permissions to create databases.
+ Default: SA.
+* **ptest.sql-server.password** - SQL Server password. Default: 123Qwe123.
+* **ptest.bigtable.project** - Google Cloud Project ID. Default: lookup from local environment.
+* **ptest.bigtable.instance** - Bigtable Instance ID. Default: null.
+* **ptest.bigtable.serviceFilePath** - Path on the local file system of the service account key used for
   authorization. Default: lookup from local environment.
   
 **NOTE:** Bigtable Sink tests will be skipped without provided properties.
