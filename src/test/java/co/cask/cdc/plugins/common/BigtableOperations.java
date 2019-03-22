@@ -25,6 +25,9 @@ import org.apache.hadoop.hbase.client.Connection;
 import java.io.IOException;
 import javax.annotation.Nullable;
 
+/**
+ * Utility methods for common Bigtable operations.
+ */
 public class BigtableOperations {
   private BigtableOperations() {
     // utility class
