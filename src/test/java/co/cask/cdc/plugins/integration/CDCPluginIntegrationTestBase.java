@@ -38,6 +38,8 @@ import co.cask.cdc.plugins.sink.CDCKudu;
 import co.cask.cdc.plugins.source.oracle.GoldenGateKafka;
 import co.cask.cdc.plugins.source.sqlserver.CTSQLServer;
 import com.codahale.metrics.MetricRegistry;
+import kafka.serializer.DefaultDecoder;
+import org.apache.spark.streaming.kafka.KafkaUtils;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.slf4j.Logger;
@@ -66,7 +68,9 @@ public abstract class CDCPluginIntegrationTestBase extends HydratorTestBase {
                       GoldenGateKafka.class, CTSQLServer.class,
                       CDCBigTable.class, CDCHBase.class, CDCKudu.class,
                       // Bigtable plugin dependencies
-                      MetricRegistry.class);
+                      MetricRegistry.class,
+                      // GoldenGateKafka plugin dependencies
+                      KafkaUtils.class, DefaultDecoder.class);
   }
 
   protected SparkManager deployETL(ETLPlugin sourcePlugin, ETLPlugin sinkPlugin, String appName) throws Exception {

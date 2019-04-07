@@ -33,7 +33,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -149,8 +149,8 @@ public class Normalizer {
     // This table name contains "." in it already
     String tableName = record.get("table");
     List<String> primaryKeys = record.get("primary_keys");
-    OperationType opType = OperationType.valueOf(record.get("op_type"));
-    Map<Schema.Field, Object> suppliedFieldValues = new HashMap<>();
+    OperationType opType = OperationType.fromShortName(record.get("op_type"));
+    Map<Schema.Field, Object> suppliedFieldValues = new LinkedHashMap<>();
     switch (opType) {
       case INSERT:
         StructuredRecord insertRecord = record.get("after");
@@ -210,7 +210,7 @@ public class Normalizer {
   }
 
   private Map<Schema.Field, Object> addDeleteFields(StructuredRecord record) {
-    Map<Schema.Field, Object> fieldValues = new HashMap<>();
+    Map<Schema.Field, Object> fieldValues = new LinkedHashMap<>();
     StructuredRecord deleteRecord = record.get("before");
     for (Schema.Field field : deleteRecord.getSchema().getFields()) {
       if (!field.getName().endsWith("_isMissing")) {
@@ -223,7 +223,7 @@ public class Normalizer {
   private StructuredRecord createDMLRecord(String tableName, OperationType opType, List<String> primaryKeys,
                                            Map<Schema.Field, Object> changedFields) throws IOException {
     Schema changeSchema = Schema.recordOf(Schemas.SCHEMA_RECORD, changedFields.keySet());
-    Map<String, Object> changes = new HashMap<>();
+    Map<String, Object> changes = new LinkedHashMap<>();
     for (Map.Entry<Schema.Field, Object> entry : changedFields.entrySet()) {
       changes.put(entry.getKey().getName(), entry.getValue());
     }
