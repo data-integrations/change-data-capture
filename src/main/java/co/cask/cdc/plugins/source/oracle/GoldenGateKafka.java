@@ -131,7 +131,7 @@ public class GoldenGateKafka extends StreamingSource<StructuredRecord> {
     kafkaParams.put("metadata.broker.list", conf.getBroker());
     JavaInputDStream<StructuredRecord> directStream = KafkaUtils.createDirectStream(
       context.getSparkStreamingContext(), byte[].class, byte[].class, DefaultDecoder.class, DefaultDecoder.class,
-      StructuredRecord.class, kafkaParams, offsets, in -> kafkaMessageToRecord(in));
+      StructuredRecord.class, kafkaParams, offsets, this::kafkaMessageToRecord);
     return directStream
       .mapToPair(record -> new Tuple2<>("", record))
       .mapWithState(StateSpec.function(schemaStateFunction()))
@@ -185,7 +185,7 @@ public class GoldenGateKafka extends StreamingSource<StructuredRecord> {
       }
     }
 
-    if (partitions.size() > 1) {
+    if (partitions.size() != 1) {
       throw new IllegalArgumentException(
         String.format("Topic '%s' should only have one partition. Found '%s' partitions.",
                       conf.getTopic(), partitions.size()));

@@ -20,5 +20,18 @@ package co.cask.cdc.plugins.common;
  * Represents change operation type.
  */
 public enum OperationType {
-  INSERT, UPDATE, DELETE
+  INSERT, UPDATE, DELETE;
+
+  public static OperationType fromShortName(String name) {
+    switch (name.toUpperCase()) {
+      case "I":
+        return INSERT;
+      case "U":
+        return UPDATE;
+      case "D":
+        return DELETE;
+      default:
+        throw new IllegalArgumentException(String.format("Unknown change operation '%s'", name));
+    }
+  }
 }

@@ -1,4 +1,4 @@
-# CDC SQL Server Streaming Source
+# CDC Golden Gate Kafka Streaming Source
 
 Description
 -----------
@@ -11,6 +11,7 @@ Useful links:
 * [Goldengate site](https://www.oracle.com/middleware/technologies/goldengate.html)
 * [Installing Oracle GoldenGate](https://docs.oracle.com/goldengate/1212/gg-winux/GIORA/install.htm#GIORA162).
 * [Using Oracle GoldenGate for Oracle Database](https://www.oracle.com/pls/topic/lookup?ctx=en/middleware/goldengate/core/18.1&id=GGODB-GUID-110CD372-2F7E-4262-B8D2-DC0A80422806).
+* [Using Oracle GoldenGate for BigData](https://docs.oracle.com/goldengate/bd123210/gg-bd/GADBD/introduction-oracle-goldengate-big-data.htm#GADBD114).
 
 Properties
 ----------
@@ -31,4 +32,8 @@ If an offset of 5 is used, the message at offset 5 will be read.
 
 Required GoldenGate Settings
 ----------
-GoldenGate should push data using Kafka handler with Generic Wrapper Functionality enabled. 
+* GoldenGate should push data using Kafka handler
+* Generic Wrapper Functionality should be enabled ("gg.handler.kafkahandler.format.wrapMessageInGenericAvroMessage"). 
+* Schema topic ("gg.handler.kafkahandler.schemaTopicName") should be equal to DML changes topic. 
+* Handler should send events in "OP" mode ("gg.handler.kafkahandler.mode"). 
+* Handler should send events in "avro_op" format ("gg.handler.kafkahandler.format"). 

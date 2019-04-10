@@ -50,26 +50,15 @@ public class ResultSetToDMLRecord implements Function<ResultSet, StructuredRecor
   @Override
   public StructuredRecord call(ResultSet row) throws SQLException {
     Schema changeSchema = getChangeSchema(row);
+    String operation = row.getString("SYS_CHANGE_OPERATION");
+    OperationType operationType = OperationType.fromShortName(operation);
     return StructuredRecord.builder(Schemas.DML_SCHEMA)
       .set(Schemas.TABLE_FIELD, Joiner.on(".").join(tableInformation.getSchemaName(), tableInformation.getName()))
       .set(Schemas.PRIMARY_KEYS_FIELD, Lists.newArrayList(tableInformation.getPrimaryKeys()))
-      .set(Schemas.OP_TYPE_FIELD, getChangeOperation(row).name())
+      .set(Schemas.OP_TYPE_FIELD, operationType.name())
       .set(Schemas.UPDATE_SCHEMA_FIELD, changeSchema.toString())
       .set(Schemas.UPDATE_VALUES_FIELD, getChangeData(row, changeSchema))
       .build();
-  }
-
-  private static OperationType getChangeOperation(ResultSet row) throws SQLException {
-    String operation = row.getString("SYS_CHANGE_OPERATION");
-    switch (operation) {
-      case "I":
-        return OperationType.INSERT;
-      case "U":
-        return OperationType.UPDATE;
-      case "D":
-        return OperationType.DELETE;
-    }
-    throw new IllegalArgumentException(String.format("Unknown change operation '%s'", operation));
   }
 
   private static Map<String, Object> getChangeData(ResultSet resultSet, Schema changeSchema) throws SQLException {

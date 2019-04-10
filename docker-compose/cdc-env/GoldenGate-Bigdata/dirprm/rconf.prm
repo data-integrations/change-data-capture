@@ -1,0 +1,7 @@
+REPLICAT rconf
+TARGETDB LIBFILE libggjava.so SET property=dirprm/rconf.properties
+discardfile ./dirrpt/kafkax.dsc, purge
+GETTRUNCATES
+GETUPDATEBEFORES
+ReportCount Every 1000 Records, Rate
+MAP *.*, TARGET *.*;

@@ -49,8 +49,19 @@ To use **remote environment** you may configure the following system properties:
 * **test.bigtable.instance** - Bigtable Instance ID. Default: null.
 * **test.bigtable.serviceFilePath** - Path on the local file system of the service account key used for
   authorization. Default: lookup from local environment.
+* **test.oracle-db.host** - Oracle DB host. Default: localhost.
+* **test.oracle-db.port** - Oracle DB port. Default: 1521.
+* **test.oracle-db.service** - Oracle DB service name. Default: XE.
+* **test.oracle-db.username** - Oracle DB username. Default: trans_user.
+* **test.oracle-db.password** - Oracle DB password. Default: trans_user.
+* **test.oracle-db.driver.jar** - Path to Oracle Java Driver jar file. Default: null.
+* **test.oracle-db.driver.class** - Oracle Java Driver class name. Default: oracle.jdbc.OracleDriver.
+* **test.goldengate.broker** - Kafka broker specified in host:port form. Default: localhost:9092.
+* **test.goldengate.topic** - Name of the topic to which Golden Gate publishes the DDL and DML changes. 
+Default: oggtopic.
   
 **NOTE:** Bigtable Sink tests will be skipped without provided properties.
+**NOTE:** Golden Gate Kafka Source tests will be skipped without provided properties.
 
 ## Run Performance Tests
 It is possible to run performance tests against **local** (see [Setup Local Environment](#setup-local-environment)) 
@@ -88,11 +99,56 @@ To use **remote environment** you may configure the following system properties:
 ## Setup Local Environment
 To start local environment you should:
 * [Install Docker Compose](https://docs.docker.com/compose/install/)
-* Run commands:
+* Build local docker images
+  * [Build Oracle DB docker image](https://github.com/oracle/docker-images/tree/master/OracleDatabase/SingleInstance)
+  * [Build Oracle GoldenGate docker image](https://github.com/oracle/docker-images/tree/master/OracleGoldenGate)
+* Start environment by running commands:
   ```bash
   cd docker-compose/cdc-env/
   docker-compose up -d
   ```
+* Configure GoldenGate for Oracle:
+  * Start ggsci:
+    ```bash
+    docker-compose exec --user oracle goldengate_oracle ggsci
+    ```
+  * Configure user credentials:
+    ```bash
+    ADD credentialstore  
+    alter credentialstore add user gg_extract@oracledb:1521/xe password gg_extract alias oggadmin 
+    ```
+  * Change source schema configuration:
+    ```bash
+    DBLOGIN USERIDALIAS oggadmin
+    add schematrandata trans_user ALLCOLS
+    ```
+  * Define the Extract and start it 
+  (all EXTRACT params are defined in docker-compose/cdc-env/GoldenGate/dirprm/ext1.prm):
+    ```bash
+    ADD EXTRACT ext1, TRANLOG, BEGIN NOW
+    ADD EXTTRAIL /u01/app/ogg/dirdat/in, EXTRACT ext1
+    START ext1
+    ```
+  * Check its status:
+    ```bash
+    INFO ext1
+    ```
+* Configure GoldenGate for BigData:
+  * Start ggsci:
+    ```bash
+    docker-compose exec --user oracle goldengate_bigdata ggsci
+    ```
+  * Define the Replicat and start it
+  (all REPLICAT params are defined in docker-compose/cdc-env/GoldenGate-Bigdata/dirprm/rconf.prm):
+    ```bash
+    ADD REPLICAT rconf, EXTTRAIL /u01/app/ogg/dirdat/in
+    START rconf
+    ```
+  * Check its status:
+    ```bash
+    INFO RCONF
+    ```
+NOTE: More info about *.prm files - https://docs.oracle.com/goldengate/1212/gg-winux/GWURF/gg_parameters.htm#GWURF394
  
 # Contact
 

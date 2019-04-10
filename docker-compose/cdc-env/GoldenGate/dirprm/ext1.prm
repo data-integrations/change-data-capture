@@ -1,0 +1,4 @@
+EXTRACT ext1
+USERIDALIAS oggadmin
+EXTTRAIL /u01/app/ogg/dirdat/in
+TABLE trans_user.*;

@@ -91,7 +91,7 @@
     <netty.version>4.1.16.Final</netty.version>
     <junit.version>4.11</junit.version>
     <!-- properties for script build step that creates the config files for the artifacts -->
-    <app.parents>system:cdap-data-streams[4.1.0-SNAPSHOT,10.0.0)</app.parents>
+    <app.parents>system:cdap-data-streams[4.0.0,10.0.0)</app.parents>
     <main.basedir>${project.basedir}</main.basedir>
 
     <skip.performance.test>true</skip.performance.test>
@@ -711,7 +711,7 @@
           <version>1.0.0</version>
           <configuration>
             <cdapArtifacts>
-              <parent>system:cdap-data-streams[4.0.0,10.0.0-SNAPSHOT)</parent>
+              <parent>${app.parents}</parent>
             </cdapArtifacts>
           </configuration>
           <executions>
