@@ -30,7 +30,8 @@ public enum OperationType {
         return UPDATE;
       case "D":
         return DELETE;
+      default:
+        throw new IllegalArgumentException(String.format("Unknown change operation '%s'", name));
     }
-    throw new IllegalArgumentException(String.format("Unknown change operation '%s'", name));
   }
 }

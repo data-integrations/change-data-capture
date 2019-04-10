@@ -122,7 +122,8 @@ To start local environment you should:
     DBLOGIN USERIDALIAS oggadmin
     add schematrandata trans_user ALLCOLS
     ```
-  * Define the Extract and start it:
+  * Define the Extract and start it 
+  (all EXTRACT params are defined in docker-compose/cdc-env/GoldenGate/dirprm/ext1.prm):
     ```bash
     ADD EXTRACT ext1, TRANLOG, BEGIN NOW
     ADD EXTTRAIL /u01/app/ogg/dirdat/in, EXTRACT ext1
@@ -137,7 +138,8 @@ To start local environment you should:
     ```bash
     docker-compose exec --user oracle goldengate_bigdata ggsci
     ```
-  * Define the Replicat and start it:
+  * Define the Replicat and start it
+  (all REPLICAT params are defined in docker-compose/cdc-env/GoldenGate-Bigdata/dirprm/rconf.prm):
     ```bash
     ADD REPLICAT rconf, EXTTRAIL /u01/app/ogg/dirdat/in
     START rconf
@@ -146,6 +148,7 @@ To start local environment you should:
     ```bash
     INFO RCONF
     ```
+NOTE: More info about *.prm files - https://docs.oracle.com/goldengate/1212/gg-winux/GWURF/gg_parameters.htm#GWURF394
  
 # Contact
 
