@@ -17,11 +17,11 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
-  <groupId>co.cask.cdc</groupId>
-  <artifactId>cask-cdc</artifactId>
+  <groupId>io.cdap.plugin</groupId>
+  <artifactId>cdc-plugins</artifactId>
   <packaging>jar</packaging>
   <version>2.0.0-SNAPSHOT</version>
-  <name>cask-cdc</name>
+  <name>cdc-plugins</name>
 
   <licenses>
     <license>
@@ -72,8 +72,8 @@
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <cdap.version>6.0.0-SNAPSHOT</cdap.version>
-    <hydrator.version>2.2.0-SNAPSHOT</hydrator.version>
+    <cdap.version>6.1.0-SNAPSHOT</cdap.version>
+    <hydrator.version>2.3.0-SNAPSHOT</hydrator.version>
     <google.cloud.core.version>1.61.0</google.cloud.core.version>
     <bigtable.version>1.8.0</bigtable.version>
     <spark.version>2.1.3</spark.version>
@@ -91,7 +91,7 @@
     <netty.version>4.1.16.Final</netty.version>
     <junit.version>4.11</junit.version>
     <!-- properties for script build step that creates the config files for the artifacts -->
-    <app.parents>system:cdap-data-streams[4.0.0,10.0.0)</app.parents>
+    <app.parents>system:cdap-data-streams[6.0.0,7.0.0)</app.parents>
     <main.basedir>${project.basedir}</main.basedir>
 
     <skip.performance.test>true</skip.performance.test>
@@ -208,22 +208,22 @@
       </exclusions>
     </dependency>
     <dependency>
-      <groupId>co.cask.cdap</groupId>
+      <groupId>io.cdap.cdap</groupId>
       <artifactId>cdap-etl-api</artifactId>
       <version>${cdap.version}</version>
     </dependency>
     <dependency>
-      <groupId>co.cask.cdap</groupId>
+      <groupId>io.cdap.cdap</groupId>
       <artifactId>cdap-etl-api-spark</artifactId>
       <version>${cdap.version}</version>
     </dependency>
     <dependency>
-      <groupId>co.cask.cdap</groupId>
+      <groupId>io.cdap.cdap</groupId>
       <artifactId>cdap-formats</artifactId>
       <version>${cdap.version}</version>
     </dependency>
     <dependency>
-      <groupId>co.cask.hydrator</groupId>
+      <groupId>io.cdap.plugin</groupId>
       <artifactId>hydrator-common</artifactId>
       <version>${hydrator.version}</version>
     </dependency>
@@ -516,7 +516,7 @@
     </dependency>
     <!-- Dependency for sql server ct-->
     <dependency>
-      <groupId>co.cask.hydrator</groupId>
+      <groupId>io.cdap.plugin</groupId>
       <artifactId>database-plugins</artifactId>
       <version>${hydrator.version}</version>
     </dependency>
@@ -527,53 +527,53 @@
     </dependency>
     <!-- Test dependencies-->
     <dependency>
-      <groupId>co.cask.cdap</groupId>
+      <groupId>io.cdap.cdap</groupId>
       <artifactId>cdap-integration-test</artifactId>
       <version>${cdap.version}</version>
       <scope>test</scope>
       <exclusions>
         <exclusion>
-          <groupId>co.cask.cdap</groupId>
+          <groupId>io.cdap.cdap</groupId>
           <artifactId>cdap-spark-core</artifactId>
         </exclusion>
       </exclusions>
     </dependency>
     <dependency>
-      <groupId>co.cask.cdap</groupId>
+      <groupId>io.cdap.cdap</groupId>
       <artifactId>hydrator-test</artifactId>
       <version>${cdap.version}</version>
       <scope>test</scope>
       <exclusions>
         <exclusion>
-          <groupId>co.cask.cdap</groupId>
+          <groupId>io.cdap.cdap</groupId>
           <artifactId>cdap-api-spark</artifactId>
         </exclusion>
         <exclusion>
-          <groupId>co.cask.cdap</groupId>
+          <groupId>io.cdap.cdap</groupId>
           <artifactId>cdap-spark-core</artifactId>
         </exclusion>
       </exclusions>
     </dependency>
     <dependency>
-      <groupId>co.cask.cdap</groupId>
+      <groupId>io.cdap.cdap</groupId>
       <artifactId>cdap-api-spark2_2.11</artifactId>
       <version>${cdap.version}</version>
       <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>co.cask.cdap</groupId>
+      <groupId>io.cdap.cdap</groupId>
       <artifactId>cdap-spark-core2_2.11</artifactId>
       <version>${cdap.version}</version>
       <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>co.cask.cdap</groupId>
+      <groupId>io.cdap.cdap</groupId>
       <artifactId>cdap-data-pipeline2_2.11</artifactId>
       <version>${cdap.version}</version>
       <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>co.cask.cdap</groupId>
+      <groupId>io.cdap.cdap</groupId>
       <artifactId>cdap-data-streams2_2.11</artifactId>
       <version>${cdap.version}</version>
       <scope>test</scope>
@@ -680,9 +680,13 @@
           <configuration>
             <instructions>
               <_exportcontents>
+                io.cdap.plugin.*;
                 org.apache.commons.lang;
                 org.apache.hadoop.hbase.mapreduce.*;
-                org.apache.hadoop.hbase.client.*;org.apache.avro.*;com.google.common.*;co.cask.*;org.apache.spark.streaming.kafka.*;
+                org.apache.hadoop.hbase.client.*;
+                org.apache.avro.*;
+                com.google.common.*;
+                org.apache.spark.streaming.kafka.*;
                 kafka.serializer.*;kafka.common;
 
                 <!-- Bigtable exports -->
@@ -706,9 +710,9 @@
           </executions>
         </plugin>
         <plugin>
-          <groupId>co.cask</groupId>
+          <groupId>io.cdap</groupId>
           <artifactId>cdap-maven-plugin</artifactId>
-          <version>1.0.0</version>
+          <version>1.1.0</version>
           <configuration>
             <cdapArtifacts>
               <parent>${app.parents}</parent>
@@ -822,7 +826,7 @@
         <artifactId>maven-antrun-plugin</artifactId>
       </plugin>
       <plugin>
-        <groupId>co.cask</groupId>
+        <groupId>io.cdap</groupId>
         <artifactId>cdap-maven-plugin</artifactId>
       </plugin>
     </plugins>
