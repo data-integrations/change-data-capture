@@ -16,6 +16,7 @@
 
 package io.cdap.plugin.cdc.sink;
 
+import com.google.common.collect.Sets;
 import io.cdap.cdap.api.annotation.Name;
 import io.cdap.cdap.api.annotation.Plugin;
 import io.cdap.cdap.api.data.format.StructuredRecord;
@@ -27,7 +28,6 @@ import io.cdap.cdap.etl.api.batch.SparkSink;
 import io.cdap.cdap.etl.api.validation.InvalidStageException;
 import io.cdap.plugin.cdc.common.OperationType;
 import io.cdap.plugin.cdc.common.Schemas;
-import com.google.common.collect.Sets;
 import org.apache.kudu.ColumnSchema;
 import org.apache.kudu.Type;
 import org.apache.kudu.client.AlterTableOptions;

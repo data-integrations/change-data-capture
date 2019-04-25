@@ -16,6 +16,8 @@
 
 package io.cdap.plugin.cdc.sink;
 
+import com.google.cloud.bigtable.hbase.BigtableConfiguration;
+import com.google.cloud.bigtable.hbase.BigtableOptionsFactory;
 import io.cdap.cdap.api.annotation.Name;
 import io.cdap.cdap.api.annotation.Plugin;
 import io.cdap.cdap.api.data.format.StructuredRecord;
@@ -27,8 +29,6 @@ import io.cdap.cdap.etl.api.validation.InvalidStageException;
 import io.cdap.plugin.cdc.common.Schemas;
 import io.cdap.plugin.cdc.common.SparkConfigs;
 import io.cdap.plugin.common.batch.JobUtils;
-import com.google.cloud.bigtable.hbase.BigtableConfiguration;
-import com.google.cloud.bigtable.hbase.BigtableOptionsFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Admin;

@@ -16,11 +16,11 @@
 
 package io.cdap.plugin.cdc.common;
 
-import io.cdap.cdap.api.data.format.StructuredRecord;
-import io.cdap.cdap.api.data.schema.Schema;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
+import io.cdap.cdap.api.data.format.StructuredRecord;
+import io.cdap.cdap.api.data.schema.Schema;
 import org.apache.avro.generic.GenericArray;
 import org.apache.avro.generic.GenericEnumSymbol;
 import org.apache.avro.generic.GenericFixed;

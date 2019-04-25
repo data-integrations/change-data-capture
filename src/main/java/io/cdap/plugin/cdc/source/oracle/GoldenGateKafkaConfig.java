@@ -15,12 +15,12 @@
  */
 package io.cdap.plugin.cdc.source.oracle;
 
+import com.google.common.base.Strings;
 import io.cdap.cdap.api.annotation.Description;
 import io.cdap.cdap.api.annotation.Macro;
 import io.cdap.cdap.api.annotation.Name;
 import io.cdap.cdap.etl.api.validation.InvalidConfigPropertyException;
 import io.cdap.plugin.cdc.common.CDCReferencePluginConfig;
-import com.google.common.base.Strings;
 import org.apache.commons.lang3.ObjectUtils;
 
 import javax.annotation.Nullable;

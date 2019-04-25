@@ -16,13 +16,13 @@
 
 package io.cdap.plugin.cdc.source.sqlserver;
 
-import io.cdap.cdap.api.data.format.StructuredRecord;
-import io.cdap.cdap.api.data.schema.Schema;
-import io.cdap.plugin.cdc.common.OperationType;
-import io.cdap.plugin.cdc.common.Schemas;
-import io.cdap.plugin.DBUtils;
 import com.google.common.base.Joiner;
 import com.google.common.collect.Lists;
+import io.cdap.cdap.api.data.format.StructuredRecord;
+import io.cdap.cdap.api.data.schema.Schema;
+import io.cdap.plugin.DBUtils;
+import io.cdap.plugin.cdc.common.OperationType;
+import io.cdap.plugin.cdc.common.Schemas;
 import org.apache.spark.api.java.function.Function;
 
 import java.sql.Date;

@@ -16,6 +16,10 @@
 
 package io.cdap.plugin.cdc.performance;
 
+import com.google.bigtable.repackaged.com.google.cloud.ServiceOptions;
+import com.google.bigtable.repackaged.com.google.cloud.bigtable.grpc.io.IOExceptionWithStatus;
+import com.google.bigtable.repackaged.io.grpc.StatusRuntimeException;
+import com.google.common.collect.ImmutableMap;
 import io.cdap.cdap.etl.api.batch.SparkSink;
 import io.cdap.cdap.etl.api.streaming.StreamingSource;
 import io.cdap.cdap.etl.proto.v2.ETLPlugin;
@@ -25,10 +29,6 @@ import io.cdap.plugin.cdc.common.BigtableOperations;
 import io.cdap.plugin.cdc.sink.CDCBigTableConfig;
 import io.cdap.plugin.cdc.source.sqlserver.CTSQLServerConfig;
 import io.cdap.plugin.common.Constants;
-import com.google.bigtable.repackaged.com.google.cloud.ServiceOptions;
-import com.google.bigtable.repackaged.com.google.cloud.bigtable.grpc.io.IOExceptionWithStatus;
-import com.google.bigtable.repackaged.io.grpc.StatusRuntimeException;
-import com.google.common.collect.ImmutableMap;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Connection;
 import org.apache.hadoop.hbase.client.Result;

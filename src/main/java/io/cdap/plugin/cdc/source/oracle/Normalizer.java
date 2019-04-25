@@ -16,13 +16,13 @@
 
 package io.cdap.plugin.cdc.source.oracle;
 
+import com.google.gson.Gson;
+import com.google.gson.JsonObject;
 import io.cdap.cdap.api.data.format.StructuredRecord;
 import io.cdap.cdap.api.data.schema.Schema;
 import io.cdap.plugin.cdc.common.AvroConverter;
 import io.cdap.plugin.cdc.common.OperationType;
 import io.cdap.plugin.cdc.common.Schemas;
-import com.google.gson.Gson;
-import com.google.gson.JsonObject;
 import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.io.DecoderFactory;

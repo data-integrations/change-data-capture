@@ -16,6 +16,7 @@
 
 package io.cdap.plugin.cdc.integration;
 
+import com.codahale.metrics.MetricRegistry;
 import io.cdap.cdap.api.artifact.ArtifactSummary;
 import io.cdap.cdap.common.conf.Constants;
 import io.cdap.cdap.datastreams.DataStreamsApp;
@@ -37,7 +38,6 @@ import io.cdap.plugin.cdc.sink.CDCHBase;
 import io.cdap.plugin.cdc.sink.CDCKudu;
 import io.cdap.plugin.cdc.source.oracle.GoldenGateKafka;
 import io.cdap.plugin.cdc.source.sqlserver.CTSQLServer;
-import com.codahale.metrics.MetricRegistry;
 import kafka.serializer.DefaultDecoder;
 import org.apache.spark.streaming.kafka.KafkaUtils;
 import org.junit.BeforeClass;

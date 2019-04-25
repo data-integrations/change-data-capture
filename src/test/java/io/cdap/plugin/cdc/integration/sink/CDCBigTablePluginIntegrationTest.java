@@ -16,6 +16,10 @@
 
 package io.cdap.plugin.cdc.integration.sink;
 
+import com.google.bigtable.repackaged.com.google.cloud.ServiceOptions;
+import com.google.bigtable.repackaged.io.grpc.StatusRuntimeException;
+import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableMap;
 import io.cdap.cdap.api.common.Bytes;
 import io.cdap.cdap.api.data.format.StructuredRecord;
 import io.cdap.cdap.api.data.schema.Schema;
@@ -31,10 +35,6 @@ import io.cdap.plugin.cdc.integration.CDCPluginIntegrationTestBase;
 import io.cdap.plugin.cdc.sink.CDCBigTableConfig;
 import io.cdap.plugin.cdc.sink.CDCTableUtil;
 import io.cdap.plugin.common.Constants;
-import com.google.bigtable.repackaged.com.google.cloud.ServiceOptions;
-import com.google.bigtable.repackaged.io.grpc.StatusRuntimeException;
-import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableMap;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Connection;
 import org.apache.hadoop.hbase.client.Get;

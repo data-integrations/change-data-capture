@@ -16,8 +16,8 @@
 
 package io.cdap.plugin.cdc.source.sqlserver;
 
-import io.cdap.cdap.api.data.format.StructuredRecord;
 import com.google.common.base.Throwables;
+import io.cdap.cdap.api.data.format.StructuredRecord;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.rdd.JdbcRDD;

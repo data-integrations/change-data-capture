@@ -16,9 +16,9 @@
 
 package io.cdap.plugin.cdc.sink;
 
+import com.google.bigtable.repackaged.com.google.cloud.ServiceOptions;
 import io.cdap.cdap.etl.api.validation.InvalidConfigPropertyException;
 import io.cdap.plugin.common.Constants;
-import com.google.bigtable.repackaged.com.google.cloud.ServiceOptions;
 import org.junit.Assert;
 import org.junit.Assume;
 import org.junit.Test;

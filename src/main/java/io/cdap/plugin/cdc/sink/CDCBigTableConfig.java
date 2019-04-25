@@ -16,14 +16,14 @@
 
 package io.cdap.plugin.cdc.sink;
 
+import com.google.bigtable.repackaged.com.google.cloud.ServiceOptions;
+import com.google.common.base.Strings;
 import io.cdap.cdap.api.annotation.Description;
 import io.cdap.cdap.api.annotation.Macro;
 import io.cdap.cdap.api.annotation.Name;
 import io.cdap.cdap.api.plugin.PluginConfig;
 import io.cdap.cdap.etl.api.validation.InvalidConfigPropertyException;
 import io.cdap.plugin.cdc.common.CDCReferencePluginConfig;
-import com.google.bigtable.repackaged.com.google.cloud.ServiceOptions;
-import com.google.common.base.Strings;
 
 import java.io.File;
 import javax.annotation.Nullable;

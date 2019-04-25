@@ -16,12 +16,12 @@
 
 package io.cdap.plugin.cdc.sink;
 
+import com.google.common.base.Preconditions;
 import io.cdap.cdap.api.common.Bytes;
 import io.cdap.cdap.api.data.format.StructuredRecord;
 import io.cdap.cdap.api.data.schema.Schema;
 import io.cdap.plugin.cdc.common.OperationType;
 import io.cdap.plugin.cdc.common.Schemas;
-import com.google.common.base.Preconditions;
 import org.apache.hadoop.hbase.HColumnDescriptor;
 import org.apache.hadoop.hbase.HTableDescriptor;
 import org.apache.hadoop.hbase.TableName;

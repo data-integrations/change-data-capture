@@ -16,6 +16,10 @@
 
 package io.cdap.plugin.cdc.integration.source;
 
+import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.microsoft.sqlserver.jdbc.SQLServerDriver;
 import io.cdap.cdap.api.data.format.StructuredRecord;
 import io.cdap.cdap.api.data.schema.Schema;
 import io.cdap.cdap.api.dataset.table.Table;
@@ -31,10 +35,6 @@ import io.cdap.plugin.cdc.integration.CDCPluginIntegrationTestBase;
 import io.cdap.plugin.cdc.integration.StructuredRecordRepresentation;
 import io.cdap.plugin.cdc.source.sqlserver.CTSQLServerConfig;
 import io.cdap.plugin.common.Constants;
-import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.microsoft.sqlserver.jdbc.SQLServerDriver;
 import org.assertj.core.api.Assertions;
 import org.awaitility.Awaitility;
 import org.junit.After;
