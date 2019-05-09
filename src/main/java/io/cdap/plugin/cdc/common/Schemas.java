@@ -81,7 +81,11 @@ public class Schemas {
   }
 
   public static String getTableName(String namespacedTableName) {
-    return namespacedTableName.split("\\.")[1];
+    String[] parts = namespacedTableName.split("\\.");
+    if (parts.length == 1) {
+      return namespacedTableName;
+    }
+    return parts[1];
   }
 
   private static Schema enumWith(Class<? extends Enum<?>> enumClass) {

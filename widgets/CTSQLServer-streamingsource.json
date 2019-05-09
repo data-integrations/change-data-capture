@@ -56,7 +56,7 @@
         "type": "record",
         "fields": [
           {
-            "name": "cdcMessage",
+            "name": "cdc_msg",
             "type": "bytes"
           }
         ]
