@@ -87,7 +87,7 @@
     <mssql.jdbc.version>6.1.0.jre7</mssql.jdbc.version>
     <hadoop.version>2.8.0</hadoop.version>
     <guava.version>13.0.1</guava.version>
-    <salesforce.api.version>45.0.0</salesforce.api.version>
+    <salesforce.api.version>46.0.0</salesforce.api.version>
     <cometd.java.client.version>4.0.0</cometd.java.client.version>
     <awaitility.version>3.1.6</awaitility.version>
     <json.version>20180813</json.version>

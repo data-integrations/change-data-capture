@@ -31,6 +31,7 @@ import org.eclipse.jetty.util.ssl.SslContextFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -65,10 +66,11 @@ public class SalesforceEventTopicListener {
 
   private final AuthenticatorCredentials credentials;
   private final List<String> objectsForTracking;
+  private BayeuxClient bayeuxClient;
 
   public SalesforceEventTopicListener(AuthenticatorCredentials credentials, List<String> objectsForTracking) {
     this.credentials = credentials;
-    this.objectsForTracking = objectsForTracking;
+    this.objectsForTracking = new ArrayList<>(objectsForTracking);
   }
 
   /**
@@ -77,7 +79,7 @@ public class SalesforceEventTopicListener {
    */
   public void start() {
     try {
-      BayeuxClient bayeuxClient = getClient(credentials);
+      bayeuxClient = getClient(credentials);
       waitForHandshake(bayeuxClient);
       LOG.debug("Client handshake done");
 
@@ -96,6 +98,15 @@ public class SalesforceEventTopicListener {
       }
     } catch (Exception e) {
       throw new RuntimeException("Could not start client", e);
+    }
+  }
+
+  /**
+   * Stop listening to the Salesforce EventTopic.
+   */
+  public void stop() {
+    if (bayeuxClient != null) {
+      bayeuxClient.disconnect(100);
     }
   }
 

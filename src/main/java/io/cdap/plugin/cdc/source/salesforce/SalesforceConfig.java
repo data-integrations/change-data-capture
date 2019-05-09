@@ -66,7 +66,7 @@ public class SalesforceConfig extends CDCReferencePluginConfig {
   private String loginUrl;
 
   @Name(SalesforceConstants.PROPERTY_OBJECTS)
-  @Description("Objects for tracking")
+  @Description("Tracking Objects")
   @Macro
   @Nullable
   private String objects;

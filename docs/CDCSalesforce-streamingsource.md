@@ -9,21 +9,22 @@ CDC source produces messages in CDC format.
 
 Properties
 ----------
-**clientId**: Client ID from the connected app
+**Client Id**: Client ID from the connected app.
 
-**clientSecret**: Client Secret from the connected app
+**Client Secret**: Client Secret from the connected app.
 
-**username**: Username
+**Username**: Username to use when connecting to Salesforce.
 
-**password**: Password
+**Password**: Password to use when connecting to Salesforce.
 
-**loginUrl**: (default is https://login.salesforce.com/services/oauth2/token) For Salesforce sandbox runs login url is 
-different. That's why user needs this option.
+**Login Url**: Salesforce login URL to authenticate against. 
+The default value is https://login.salesforce.com/services/oauth2/token. 
+This should be changed when running against the Salesforce sandbox.
 
-**objects**: list of object's API names (For example: Task for base object and Employee__c for custom) separated by ",".
+**Tracking Objects**: Objects to read change events from (For example: Task for base object and Employee__c for custom) separated by ",".
 If list is empty then subscription for all events will be used.
 
-**Handle errors**: Possible values are: "Skip on error" or "Fail on error". These are strategies on handling records 
+**Error Handling**: Possible values are: "Skip on error" or "Fail on error". These are strategies on handling records 
 which cannot be transformed. "Skip on error" - just skip, "Fail on error" - fails the pipeline if at least one erroneous 
 record is found.
 

@@ -17,17 +17,19 @@
 package io.cdap.plugin.cdc.source.salesforce;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import com.google.gson.Gson;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.sforce.soap.partner.PartnerConnection;
 import com.sforce.soap.partner.QueryResult;
 import com.sforce.soap.partner.sobject.SObject;
 import com.sforce.ws.ConnectionException;
 import io.cdap.cdap.api.data.format.StructuredRecord;
-import io.cdap.cdap.api.data.format.UnexpectedFormatException;
 import io.cdap.cdap.api.data.schema.Schema;
 import io.cdap.plugin.cdc.common.ErrorHandling;
 import io.cdap.plugin.cdc.common.OperationType;
 import io.cdap.plugin.cdc.source.salesforce.authenticator.AuthenticatorCredentials;
-import io.cdap.plugin.cdc.source.salesforce.records.ChangeEventRecord;
+import io.cdap.plugin.cdc.source.salesforce.records.ChangeEventHeader;
 import io.cdap.plugin.cdc.source.salesforce.records.SalesforceRecord;
 import io.cdap.plugin.cdc.source.salesforce.sobject.SObjectDescriptor;
 import io.cdap.plugin.cdc.source.salesforce.sobject.SObjectsDescribeResult;
@@ -37,8 +39,8 @@ import org.apache.spark.streaming.receiver.Receiver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -47,31 +49,34 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
- * Implementation of Spark receiver to receive Salesforce change events
+ * Implementation of Spark receiver to receive Salesforce change events from EventTopic using Bayeux Client.
+ * Subscribes to all events if objectsForTracking is empty, otherwise subscribes to all topics in list.
+ * Produces DML structured records depending on change event type. Also produces DDL record if change event entity type
+ * is processed for the first time.
  */
 public class SalesforceReceiver extends Receiver<StructuredRecord> {
   private static final Logger LOG = LoggerFactory.getLogger(SalesforceReceiver.class);
   private static final String RECEIVER_THREAD_NAME = "salesforce_streaming_api_listener";
   // every x seconds thread wakes up and checks if stream is not yet stopped
   private static final long GET_MESSAGE_TIMEOUT_SECONDS = 2;
+  private static final Gson GSON = new Gson();
 
   private final AuthenticatorCredentials credentials;
   private final List<String> objectsForTracking;
   private final ErrorHandling errorHandling;
-
+  private final Map<String, Schema> schemas = new HashMap<>();
+  private final Map<String, List<ChangeEventHeader>> events = new HashMap<>();
   private SalesforceEventTopicListener eventTopicListener;
-
-
-  private Map<String, Schema> schemas = new HashMap<>();
-  private Map<String, List<ChangeEventRecord>> events = new HashMap<>();
+  private static final JsonParser JSON_PARSER = new JsonParser();
 
   SalesforceReceiver(AuthenticatorCredentials credentials, List<String> objectsForTracking,
                      ErrorHandling errorHandling) {
     super(StorageLevel.MEMORY_AND_DISK_2());
     this.credentials = credentials;
-    this.objectsForTracking = objectsForTracking;
+    this.objectsForTracking = new ArrayList<>(objectsForTracking);
     this.errorHandling = errorHandling;
   }
 
@@ -106,16 +111,22 @@ public class SalesforceReceiver extends Receiver<StructuredRecord> {
         String message = eventTopicListener.getMessage(GET_MESSAGE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
 
         if (message != null) {
-          ChangeEventRecord record = ChangeEventRecord.fromJSON(message);
+          // whole message class is not needed because we are interested only in change event payload
+          JsonObject headerElement = JSON_PARSER.parse(message)
+            .getAsJsonObject()
+            .getAsJsonObject("data")
+            .getAsJsonObject("payload")
+            .getAsJsonObject("ChangeEventHeader");
+          ChangeEventHeader event = GSON.fromJson(headerElement, ChangeEventHeader.class);
 
-          List<ChangeEventRecord> eventsList = events.getOrDefault(record.getTransactionKey(), Collections.emptyList());
-          eventsList.add(record);
+          List<ChangeEventHeader> eventsList = events.getOrDefault(event.getTransactionKey(), new ArrayList<>());
+          eventsList.add(event);
 
-          if (record.isTransactionEnd()) {
+          if (event.isTransactionEnd()) {
             processEvents(eventsList, connection);
-            events.remove(record.getTransactionKey());
+            events.remove(event.getTransactionKey());
           } else {
-            events.put(record.getTransactionKey(), eventsList);
+            events.put(event.getTransactionKey(), eventsList);
           }
         }
       } catch (Exception e) {
@@ -126,24 +137,25 @@ public class SalesforceReceiver extends Receiver<StructuredRecord> {
           case STOP:
             throw new RuntimeException("Failed to process message", e);
           default:
-            throw new UnexpectedFormatException(String.format("Unknown error handling strategy '%s'", errorHandling));
+            throw new IllegalStateException(String.format("Unknown error handling strategy '%s'", errorHandling));
         }
       }
     }
+    eventTopicListener.stop();
   }
 
-  private void processEvents(List<ChangeEventRecord> events, PartnerConnection connection) throws ConnectionException {
-    for (ChangeEventRecord event : events) {
+  private void processEvents(List<ChangeEventHeader> events, PartnerConnection connection) throws ConnectionException {
+    for (ChangeEventHeader event : events) {
       SObjectDescriptor descriptor = SObjectDescriptor.fromName(event.getEntityName(), connection);
       SObjectsDescribeResult describeResult = new SObjectsDescribeResult(connection, descriptor.getAllParentObjects());
 
       Schema schema = SalesforceRecord.getSchema(descriptor, describeResult);
       updateSchemaIfNecessary(event.getEntityName(), schema);
 
-      if (event.getOperationType() != OperationType.DELETE) {
+      if (getOperationType(event) != OperationType.DELETE) {
         sendUpdateRecords(event, descriptor, schema, connection);
       } else {
-        sendDeleteRecords(event.getIds(), event.getEntityName(), schema);
+        sendDeleteRecords(Arrays.asList(event.getRecordIds()), event.getEntityName(), schema);
       }
     }
   }
@@ -160,20 +172,20 @@ public class SalesforceReceiver extends Receiver<StructuredRecord> {
     }
   }
 
-  private void sendUpdateRecords(ChangeEventRecord event, SObjectDescriptor descriptor, Schema schema,
+  private void sendUpdateRecords(ChangeEventHeader event, SObjectDescriptor descriptor, Schema schema,
                                  PartnerConnection connection) throws ConnectionException {
     String query = getQuery(event, descriptor.getFieldsNames());
     QueryResult queryResult = connection.query(query);
 
     if (queryResult != null) {
-      if (queryResult.getRecords().length < event.getIds().size() && !event.isWildcard()) {
-        List<String> idsForDelete = findIdsMismatch(queryResult.getRecords(), event.getIds());
+      if (queryResult.getRecords().length < event.getRecordIds().length && !isWildcardEvent(event)) {
+        List<String> idsForDelete = findIdsMismatch(queryResult.getRecords(), event.getRecordIds());
         sendDeleteRecords(idsForDelete, event.getEntityName(), schema);
       }
 
       for (SObject sObject : queryResult.getRecords()) {
         StructuredRecord dmlRecord = SalesforceRecord
-          .buildDMLStructuredRecord(sObject.getId(), event.getEntityName(), schema, event.getOperationType(), sObject);
+          .buildDMLStructuredRecord(sObject.getId(), event.getEntityName(), schema, getOperationType(event), sObject);
 
         LOG.debug("Sending dml message for '{}:{}'", event.getEntityName(), sObject.getId());
         store(dmlRecord);
@@ -181,12 +193,12 @@ public class SalesforceReceiver extends Receiver<StructuredRecord> {
     }
   }
 
-  private List<String> findIdsMismatch(SObject[] sObjectArray, List<String> ids) {
+  private List<String> findIdsMismatch(SObject[] sObjectArray, String[] ids) {
     Set<String> idsFromQuery = Arrays.stream(sObjectArray)
       .map(SObject::getId)
       .collect(Collectors.toSet());
 
-    return ids.stream()
+    return Stream.of(ids)
       .filter(id -> !idsFromQuery.contains(id))
       .collect(Collectors.toList());
   }
@@ -201,17 +213,38 @@ public class SalesforceReceiver extends Receiver<StructuredRecord> {
     }
   }
 
-  private String getQuery(ChangeEventRecord event, List<String> fields) {
+  private String getQuery(ChangeEventHeader event, List<String> fields) {
     String query = String.format("select %s from %s", String.join(",", fields), event.getEntityName());
-    if (event.isWildcard()) {
+    if (isWildcardEvent(event)) {
       return query;
     } else {
-      String ids = event
-        .getIds()
-        .stream()
+      String ids = Stream.of(event.getRecordIds())
         .map(id -> String.format("'%s'", id))
         .collect(Collectors.joining(","));
       return String.format("%s where id in (%s)", query, ids);
     }
+  }
+
+  private static boolean isWildcardEvent(ChangeEventHeader event) {
+    String[] ids = event.getRecordIds();
+    return ids.length == 0 || ids.length == 1 && ids[0].charAt(3) == '*';
+  }
+
+  private static OperationType getOperationType(ChangeEventHeader event) {
+    switch (event.getChangeType()) {
+      case CREATE:
+      case GAP_CREATE:
+      case UNDELETE:
+      case GAP_UNDELETE:
+        return OperationType.INSERT;
+      case UPDATE:
+      case GAP_UPDATE:
+      case GAP_OVERFLOW:
+        return OperationType.UPDATE;
+      case DELETE:
+      case GAP_DELETE:
+        return OperationType.DELETE;
+    }
+    throw new IllegalArgumentException(String.format("Unknown change operation '%s'", event.getChangeType()));
   }
 }
