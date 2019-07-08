@@ -20,7 +20,13 @@ import io.cdap.cdap.api.data.format.StructuredRecord;
 import io.cdap.cdap.api.data.schema.Schema;
 import io.cdap.cdap.api.data.schema.Schema.Field;
 import io.cdap.cdap.api.data.schema.Schema.Type;
+import io.cdap.cdap.format.StructuredRecordStringConverter;
+import io.cdap.plugin.cdc.source.sqlserver.CTInputDStream;
+import io.cdap.plugin.cdc.source.sqlserver.CTSQLServer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -44,6 +50,9 @@ public class Schemas {
   public static final String DML_FIELD = "dml";
   public static final String UPDATE_SCHEMA_FIELD = "rows_schema";
   public static final String UPDATE_VALUES_FIELD = "rows_values";
+  public static final String CHANGE_TRACKING_VERSION = "change_tracking_version";
+
+  private static final Logger LOG = LoggerFactory.getLogger(CTSQLServer.class);
 
   public static final Schema DDL_SCHEMA = Schema.recordOf(
     "DDLRecord",
@@ -57,7 +66,8 @@ public class Schemas {
     Field.of(TABLE_FIELD, Schema.of(Type.STRING)),
     Field.of(PRIMARY_KEYS_FIELD, Schema.arrayOf(Schema.of(Type.STRING))),
     Field.of(UPDATE_SCHEMA_FIELD, Schema.of(Type.STRING)),
-    Field.of(UPDATE_VALUES_FIELD, Schema.mapOf(Schema.of(Type.STRING), SIMPLE_TYPES))
+    Field.of(UPDATE_VALUES_FIELD, Schema.mapOf(Schema.of(Type.STRING), SIMPLE_TYPES)),
+    Field.of(CHANGE_TRACKING_VERSION, Schema.of(Type.STRING))
   );
 
   public static final Schema CHANGE_SCHEMA = Schema.recordOf(

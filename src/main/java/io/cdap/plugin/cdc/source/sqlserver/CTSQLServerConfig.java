@@ -24,32 +24,27 @@ import io.cdap.cdap.etl.api.validation.InvalidConfigPropertyException;
 import io.cdap.plugin.cdc.common.CDCReferencePluginConfig;
 
 import javax.annotation.Nullable;
+import javax.validation.constraints.Null;
 
 /**
  * Defines the {@link PluginConfig} for the {@link CTSQLServer}.
  */
 public class CTSQLServerConfig extends CDCReferencePluginConfig {
 
-  public static final String HOST_NAME = "hostname";
-  public static final String PORT = "port";
+  public static final String CONNECTION_STRING = "connectionString";
   public static final String USERNAME = "username";
   public static final String PASSWORD = "password";
-  public static final String DATABASE_NAME = "dbname";
+  public static final String DBNAME = "dbname";
+  public static final String SQN = "sqn";
+  public static final String CDCNUMBER = "cdcnumber";
+  public static final String TABLENAME = "tableName";
+  public static final String MAXBATCHSIZE = "maxBatchSize";
+  public static final String DRIVERCLASSNAME = "driverClassName";
 
-  @Name(HOST_NAME)
-  @Description("SQL Server hostname. Ex: mysqlsever.net")
+  @Name(CONNECTION_STRING)
+  @Description("Connection String")
   @Macro
-  private String hostname;
-
-  @Name(PORT)
-  @Description("SQL Server port. Defaults to 1433")
-  @Macro
-  private final int port;
-
-  @Name(DATABASE_NAME)
-  @Description("SQL Server database name. Note: CT must be enabled on the database for change tracking.")
-  @Macro
-  private String dbName;
+  private String connectionString;
 
   @Name(USERNAME)
   @Description("User to use to connect to the specified database. Required for databases that " +
@@ -58,6 +53,10 @@ public class CTSQLServerConfig extends CDCReferencePluginConfig {
   @Macro
   private final String username;
 
+  @Name(DBNAME)
+  @Description("Database Name")
+  public String dbName;
+
   @Name(PASSWORD)
   @Description("Password to use to connect to the specified database. Required for databases that " +
     "need authentication. Optional for databases that do not require authentication.")
@@ -65,33 +64,76 @@ public class CTSQLServerConfig extends CDCReferencePluginConfig {
   @Macro
   private final String password;
 
+  @Name(SQN)
+  @Description("Need the CDC Sequence Number in the output schema")
+  @Nullable
+  @Macro
+  private final Boolean sqn;
+
+
+  @Name(CDCNUMBER)
+  @Description("CDC Sequence Number to start ingesting from")
+  @Nullable
+  @Macro
+  private final int cdcnumber;
+
+
+  @Name(TABLENAME)
+  @Description("Table name for CT Information")
+  @Nullable
+  @Macro
+  private final String tableName;
+
+  @Name(MAXBATCHSIZE)
+  @Description("Size of a record batch per pipeline batch interval")
+  @Nullable
+  @Macro
+  private final int maxBatchSize;
+
+  @Name(DRIVERCLASSNAME)
+  @Description("Driver class name")
+  @Nullable
+  @Macro
+  private final String driverClassName;
+
+
+
   public CTSQLServerConfig() {
     super("");
-    port = 1433;
     username = null;
     password = null;
+    sqn = false;
+    cdcnumber = 0;
+    tableName = null;
+    maxBatchSize = 100000;
+    this.driverClassName = null;
   }
 
   public CTSQLServerConfig(String referenceName, String hostname, int port, String dbName, String username,
-                           String password) {
+                           String password, Boolean sqn, int cdcnumber, String tableName, int maxBatchSize,
+                           String driverClassName) {
     super(referenceName);
-    this.hostname = hostname;
-    this.port = port;
-    this.dbName = dbName;
+    this.connectionString = hostname;
     this.username = username;
     this.password = password;
+    this.sqn = sqn;
+    this.cdcnumber = cdcnumber;
+    this.tableName = tableName;
+    this.maxBatchSize = maxBatchSize;
+    this.driverClassName = driverClassName;
   }
 
-  public String getHostname() {
-    return hostname;
-  }
-
-  public int getPort() {
-    return port;
+  public String getConnectionString() {
+    return connectionString;
   }
 
   public String getDbName() {
     return dbName;
+  }
+
+  @Nullable
+  public String getDriverClassName() {
+    return driverClassName;
   }
 
   @Nullable
@@ -104,11 +146,28 @@ public class CTSQLServerConfig extends CDCReferencePluginConfig {
     return password;
   }
 
+  @Nullable
+  public Boolean getSqn() {
+    return sqn;
+  }
+
+  @Nullable
+  public int getCdcnumber() {
+    return cdcnumber;
+  }
+
+  @Nullable
+  public String getTableName() {
+    return tableName;
+  }
+
+  @Nullable
+  public int getMaxBatchSize() {
+    return maxBatchSize;
+  }
+
   @Override
   public void validate() {
     super.validate();
-    if (!containsMacro(PORT) && (port < 0 || port > 65535)) {
-      throw new InvalidConfigPropertyException("Port number should be in range 0-65535", PORT);
-    }
   }
 }

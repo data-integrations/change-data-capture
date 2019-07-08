@@ -1,0 +1,21 @@
+{
+  "metadata": {
+    "spec-version": "1.0"
+  },
+  "configuration-groups": [
+    {
+      "label": "Convert CDC record into table record",
+      "properties": [
+
+
+      ]
+    }
+  ],
+  "outputs": [
+    {
+      "name": "schema",
+      "label": "schema",
+      "widget-type": "dataset-selector"
+    }
+  ]
+}

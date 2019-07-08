@@ -44,6 +44,43 @@
           "label": "Database name",
           "name": "dbname",
           "description": "SQL Server database name which needs to be tracked. Note: Change Tracking must be enabled on the database for the source to read the chage data"
+        },
+        {
+          "widget-type": "select",
+          "label": "Generate CDC Sequence Number in output schema",
+          "name": "sqn",
+          "description": "Need the CDC Sequence Number in the output schema",
+          "widget-attributes": {
+            "values": [
+              "true",
+              "false"
+            ],
+            "default": "false"
+          }
+        },
+        {
+          "widget-type": "textbox",
+          "label": "CDC Sequence Number",
+          "name": "cdcnnumber",
+          "description": "Sequence Number to start ingesting number"
+        },
+        {
+          "widget-type": "textbox",
+          "label": "Table Name",
+          "name": "tableName",
+          "description": "Table name for CT Information (Comma seperated for multiple tables)"
+        },
+        {
+          "widget-type": "textbox",
+          "label": "Max Batch Size",
+          "name": "maxBatchSize",
+          "description": "Size of a record batch per pipeline batch interval"
+        },
+        {
+          "widget-type": "textbox",
+          "label": "Driver Class Name",
+          "name": "driverClassName",
+          "description": "Driver class name"
         }
       ]
     }

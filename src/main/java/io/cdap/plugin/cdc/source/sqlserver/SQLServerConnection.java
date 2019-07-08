@@ -32,16 +32,18 @@ class SQLServerConnection implements JdbcRDD.ConnectionFactory {
   private final String connectionUrl;
   private final String userName;
   private final String password;
+  private final String driverClassName;
 
-  SQLServerConnection(String connectionUrl, String userName, String password) {
+  SQLServerConnection(String connectionUrl, String userName, String password, String driverClassName) {
     this.connectionUrl = connectionUrl;
     this.userName = userName;
     this.password = password;
+    this.driverClassName = driverClassName;
   }
 
   @Override
   public Connection getConnection() throws Exception {
-    Class.forName(SQLServerDriver.class.getName());
+    Class.forName(driverClassName);
     return DriverManager.getConnection(connectionUrl, userName, password);
   }
 }

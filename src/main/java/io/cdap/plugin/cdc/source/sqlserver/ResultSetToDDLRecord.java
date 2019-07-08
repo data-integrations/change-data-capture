@@ -17,11 +17,14 @@
 package io.cdap.plugin.cdc.source.sqlserver;
 
 import com.google.common.base.Joiner;
+import com.google.common.collect.Lists;
 import io.cdap.cdap.api.data.format.StructuredRecord;
 import io.cdap.cdap.api.data.schema.Schema;
 import io.cdap.plugin.DBUtils;
 import io.cdap.plugin.cdc.common.Schemas;
 import org.apache.spark.api.java.function.Function;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -34,15 +37,24 @@ public class ResultSetToDDLRecord implements Function<ResultSet, StructuredRecor
 
   private final String schemaName;
   private final String tableName;
+  private final boolean requireSeqNumber;
+  private static final Logger LOG = LoggerFactory.getLogger(CTSQLServer.class);
 
-  ResultSetToDDLRecord(String schemaName, String tableName) {
+  ResultSetToDDLRecord(String schemaName, String tableName, boolean requireSeqNumber) {
     this.schemaName = schemaName;
     this.tableName = tableName;
+    this.requireSeqNumber = requireSeqNumber;
   }
 
   @Override
   public StructuredRecord call(ResultSet row) throws SQLException {
-    Schema tableSchema = Schema.recordOf(Schemas.SCHEMA_RECORD, DBUtils.getSchemaFields(row));
+    java.util.List<io.cdap.cdap.api.data.schema.Schema.Field> fields = Lists.newArrayList();
+    if (requireSeqNumber) {
+      fields.add(io.cdap.cdap.api.data.schema.Schema.Field.of("CHANGE_TRACKING_VERSION", Schema.of(Schema.Type.LONG)));
+      fields.add(io.cdap.cdap.api.data.schema.Schema.Field.of("CDC_CURRENT_TIMESTAMP", Schema.of(Schema.Type.LONG)));
+    }
+    fields.addAll(DBUtils.getSchemaFields(row));
+    Schema tableSchema = Schema.recordOf(Schemas.SCHEMA_RECORD, fields);
     return StructuredRecord.builder(Schemas.DDL_SCHEMA)
       .set(Schemas.TABLE_FIELD, Joiner.on(".").join(schemaName, tableName))
       .set(Schemas.SCHEMA_FIELD, tableSchema.toString())
