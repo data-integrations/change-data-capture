@@ -41,6 +41,7 @@ import scala.reflect.ClassTag$;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.HashMap;
@@ -79,8 +80,7 @@ public class CTSQLServer extends StreamingSource<StructuredRecord> {
     try {
       Class.forName(conf.getDriverClassName());
       if (conf.getUsername() != null && conf.getPassword() != null) {
-        LOG.info("Creating connection with url {}, username {}, " +
-          "password *****", getConnectionString(), conf.getUsername());
+        LOG.info("Creating connection with url {}, username {} ", getConnectionString(), conf.getUsername());
         connection = DriverManager.getConnection(getConnectionString(),
           conf.getUsername(), conf.getPassword());
 
@@ -92,7 +92,7 @@ public class CTSQLServer extends StreamingSource<StructuredRecord> {
       if (e instanceof SQLException) {
         LOG.error("Failed to establish connection with SQL Server with the given configuration.");
       }
-      throw new InvalidStageException(e.toString());
+      throw new InvalidStageException(e.toString(), e);
     }
     try {
       checkDBCTEnabled(connection, conf.getDbName());
@@ -127,9 +127,9 @@ public class CTSQLServer extends StreamingSource<StructuredRecord> {
     LOG.info("Creating change information dstream");
     ClassTag<StructuredRecord> tag = ClassTag$.MODULE$.<StructuredRecord>apply(StructuredRecord.class);
     CTInputDStream dstream = new CTInputDStream(context.getSparkStreamingContext().ssc(),
-      new SQLServerConnection(conf.getConnectionString()
-        , conf.getUsername(), conf.getPassword()
-        , conf.getDriverClassName()),
+      new SQLServerConnection(conf.getConnectionString(),
+        conf.getUsername(), conf.getPassword(),
+        conf.getDriverClassName()),
       getConnectionString(), conf.getUsername(), conf.getPassword(),
       requireSeqNumber, offset, tableName, maxBatchSize);
     return JavaDStream.fromDStream(dstream, tag)
@@ -140,7 +140,7 @@ public class CTSQLServer extends StreamingSource<StructuredRecord> {
 
   private void checkDBCTEnabled(Connection connection, String dbName) throws SQLException {
     String query = "SELECT * FROM sys.change_tracking_databases WHERE database_id=DB_ID(?)";
-    try (java.sql.PreparedStatement preparedStatement = connection.prepareStatement(query)) {
+    try (PreparedStatement preparedStatement = connection.prepareStatement(query)) {
       preparedStatement.setString(1, dbName);
       try (ResultSet resultSet = preparedStatement.executeQuery()) {
         if (resultSet.next()) {
@@ -154,7 +154,7 @@ public class CTSQLServer extends StreamingSource<StructuredRecord> {
   }
 
   private String getConnectionString() {
-    return  conf.getConnectionString();
+    return conf.getConnectionString();
   }
 
   private static Function4<Time, String, Optional<StructuredRecord>, State<Map<String, String>>,

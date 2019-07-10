@@ -35,9 +35,12 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.LinkedList;
+import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -76,7 +79,7 @@ public class CTInputDStream extends InputDStream<StructuredRecord> {
       return doCompute();
     } catch (Exception e) {
       // Retry all exceptions (e.g. SQL Server deadlock exception)
-      LOG.warn("Retrying exception: " + e.getMessage());
+      LOG.warn("Error while reading changes. The read will be retried in the next interval.", e);
       return Option.empty();
     }
   }
@@ -85,8 +88,8 @@ public class CTInputDStream extends InputDStream<StructuredRecord> {
     try (Connection connection = connectionFactory.getConnection()) {
       // get the table information of all tables which have ct enabled.
       List<TableInformation> tableInformations = getCTEnabledTables(connection, tableName);
-      LOG.info("tableInformation" + tableInformations.toString());
-      java.util.LinkedList<JavaRDD<StructuredRecord>> changeRDDs = new java.util.LinkedList<>();
+      LOG.debug("table information = {}", tableInformations);
+      LinkedList<JavaRDD<StructuredRecord>> changeRDDs = new LinkedList<>();
 
       // Get the schema of tables. We get the schema of tables every microbatch because we want to update the downstream
       // dataset with the DDL changes if any.
@@ -158,7 +161,7 @@ public class CTInputDStream extends InputDStream<StructuredRecord> {
       new ResultSetToDMLRecord(tableInformation, requireSeqNumber));
   }
 
-  private long getCurrentTrackingVersion(Connection connection) throws java.sql.SQLException {
+  private long getCurrentTrackingVersion(Connection connection) throws SQLException {
     ResultSet resultSet = connection.createStatement().executeQuery("SELECT CHANGE_TRACKING_CURRENT_VERSION()");
     long changeVersion = 0;
     if (resultSet.next()) {
@@ -182,11 +185,11 @@ public class CTInputDStream extends InputDStream<StructuredRecord> {
 
   private Set<String> getColumns(Connection connection, String schema, String table) throws SQLException {
     String query = String.format("SELECT top 1 * from [%s].[%s](nolock)", schema, table);
-    java.sql.Statement statement = connection.createStatement();
+    Statement statement = connection.createStatement();
     statement.setMaxRows(1);
     ResultSet resultSet = statement.executeQuery(query);
     ResultSetMetaData metadata = resultSet.getMetaData();
-    Set<String> columns = new java.util.LinkedHashSet<>();
+    Set<String> columns = new LinkedHashSet<>();
     for (int i = 1; i <= metadata.getColumnCount(); i++) {
       columns.add(metadata.getColumnName(i));
     }
@@ -197,7 +200,7 @@ public class CTInputDStream extends InputDStream<StructuredRecord> {
     String stmt = "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE WHERE " +
       "OBJECTPROPERTY(OBJECT_ID(CONSTRAINT_SCHEMA+'.'+CONSTRAINT_NAME), 'IsPrimaryKey') = 1 AND " +
       "TABLE_SCHEMA = ? AND TABLE_NAME = ?";
-    Set<String> keyColumns = new java.util.LinkedHashSet<>();
+    Set<String> keyColumns = new LinkedHashSet<>();
     try (PreparedStatement primaryKeyStatement = connection.prepareStatement(stmt)) {
       primaryKeyStatement.setString(1, schema);
       primaryKeyStatement.setString(2, table);
@@ -211,7 +214,7 @@ public class CTInputDStream extends InputDStream<StructuredRecord> {
   }
 
   private List<TableInformation> getCTEnabledTables(Connection connection, String tableNames) throws SQLException {
-    java.util.List<TableInformation> tableInformations = new java.util.LinkedList<>();
+    List<TableInformation> tableInformations = new LinkedList<>();
     List<String> tables = Arrays.asList(tableName.split(","));
     String stmt = "SELECT s.name as schema_name, t.name AS table_name, ctt.* FROM sys.change_tracking_tables ctt " +
       "INNER JOIN sys.tables t on t.object_id = ctt.object_id " +

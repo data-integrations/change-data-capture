@@ -61,8 +61,7 @@
         {
           "widget-type": "textbox",
           "label": "CDC Sequence Number",
-          "name": "cdcnnumber",
-          "description": "Sequence Number to start ingesting number"
+          "name": "cdcnnumber"
         },
         {
           "widget-type": "textbox",
@@ -75,6 +74,9 @@
           "label": "Max Batch Size",
           "name": "maxBatchSize",
           "description": "Size of a record batch per pipeline batch interval"
+          "widget-attributes" : {
+            "default" : 100000
+          }
         },
         {
           "widget-type": "textbox",

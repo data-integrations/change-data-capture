@@ -24,7 +24,6 @@ import io.cdap.cdap.etl.api.validation.InvalidConfigPropertyException;
 import io.cdap.plugin.cdc.common.CDCReferencePluginConfig;
 
 import javax.annotation.Nullable;
-import javax.validation.constraints.Null;
 
 /**
  * Defines the {@link PluginConfig} for the {@link CTSQLServer}.
@@ -80,7 +79,6 @@ public class CTSQLServerConfig extends CDCReferencePluginConfig {
 
   @Name(TABLENAME)
   @Description("Table name for CT Information")
-  @Nullable
   @Macro
   private final String tableName;
 

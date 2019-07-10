@@ -58,7 +58,6 @@ public class ResultSetToDMLRecord implements Function<ResultSet, StructuredRecor
 
   @Override
   public StructuredRecord call(ResultSet row) throws Exception {
-    LOG.info(row.toString());
     Schema changeSchema = getChangeSchema(row, size);
     Map<String, Object> map = getChangeData(row, changeSchema, size);
     return StructuredRecord.builder(Schemas.DML_SCHEMA)
@@ -92,12 +91,12 @@ public class ResultSetToDMLRecord implements Function<ResultSet, StructuredRecor
     for (int i = 0; i < changeSchema.getFields().size(); i++) {
 
       Schema.Field field = changeSchema.getFields().get(i);
-      int column = getColumnForFeild(metadata, field.getName());
+      int column = getColumnForField(metadata, field.getName());
       int sqlType = metadata.getColumnType(column);
       String sqlTypeName = metadata.getColumnTypeName(column);
       int sqlPrecision = metadata.getPrecision(column);
       int sqlScale = metadata.getScale(column);
-      getColumnForFeild(metadata, field.getName());
+      getColumnForField(metadata, field.getName());
 
       try {
         /**
@@ -131,15 +130,15 @@ public class ResultSetToDMLRecord implements Function<ResultSet, StructuredRecor
     return changes;
   }
 
-  private static int getColumnForFeild(ResultSetMetaData metadata, String columnName) throws Exception {
+  private static int getColumnForField(ResultSetMetaData metadata, String columnName) throws Exception {
     for (int i = 1; i <= metadata.getColumnCount(); i++) {
       if (metadata.getColumnLabel(i).equals(columnName) || metadata.getColumnName(i).equals(columnName)) {
         return i;
       }
     }
     throw new Exception ("Can not find " + columnName);
-
   }
+
   private static Schema getChangeSchema(ResultSet resultSet, int size) throws Exception {
     List<Schema.Field> schemaFields = DBUtils.getSchemaFields(resultSet);
     // drop first three columns as they are from change tracking tables and does not represent the change data

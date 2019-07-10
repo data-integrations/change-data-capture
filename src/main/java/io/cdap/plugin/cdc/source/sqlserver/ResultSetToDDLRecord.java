@@ -16,10 +16,13 @@
 
 package io.cdap.plugin.cdc.source.sqlserver;
 
+import static com.google.api.client.util.Lists.newArrayList;
+
 import com.google.common.base.Joiner;
 import com.google.common.collect.Lists;
 import io.cdap.cdap.api.data.format.StructuredRecord;
 import io.cdap.cdap.api.data.schema.Schema;
+import io.cdap.cdap.api.data.schema.Schema.Field;
 import io.cdap.plugin.DBUtils;
 import io.cdap.plugin.cdc.common.Schemas;
 import org.apache.spark.api.java.function.Function;
@@ -28,6 +31,7 @@ import org.slf4j.LoggerFactory;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.List;
 
 /**
  * A serializable class to allow invoking {@link scala.Function1} from Java. The function converts {@link ResultSet}
@@ -48,10 +52,10 @@ public class ResultSetToDDLRecord implements Function<ResultSet, StructuredRecor
 
   @Override
   public StructuredRecord call(ResultSet row) throws SQLException {
-    java.util.List<io.cdap.cdap.api.data.schema.Schema.Field> fields = Lists.newArrayList();
+    List<Schema.Field> fields = newArrayList();
     if (requireSeqNumber) {
-      fields.add(io.cdap.cdap.api.data.schema.Schema.Field.of("CHANGE_TRACKING_VERSION", Schema.of(Schema.Type.LONG)));
-      fields.add(io.cdap.cdap.api.data.schema.Schema.Field.of("CDC_CURRENT_TIMESTAMP", Schema.of(Schema.Type.LONG)));
+      fields.add(Schema.Field.of("CHANGE_TRACKING_VERSION", Schema.of(Schema.Type.LONG)));
+      fields.add(Schema.Field.of("CDC_CURRENT_TIMESTAMP", Schema.of(Schema.Type.LONG)));
     }
     fields.addAll(DBUtils.getSchemaFields(row));
     Schema tableSchema = Schema.recordOf(Schemas.SCHEMA_RECORD, fields);
