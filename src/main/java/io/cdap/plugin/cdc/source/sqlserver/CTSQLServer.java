@@ -83,16 +83,17 @@ public class CTSQLServer extends StreamingSource<StructuredRecord> {
         LOG.info("Creating connection with url {}, username {} ", getConnectionString(), conf.getUsername());
         connection = DriverManager.getConnection(getConnectionString(),
           conf.getUsername(), conf.getPassword());
-
       } else {
         LOG.info("Creating connection with url {}", getConnectionString());
         connection = DriverManager.getConnection(getConnectionString(), null, null);
       }
     } catch (Exception e) {
+      String message = e.getMessage();
       if (e instanceof SQLException) {
-        LOG.error("Failed to establish connection with SQL Server with the given configuration.");
+        message = "Failed to establish connection with SQL Server with " + getConnectionString() +
+          " , username " + conf.getUsername();
       }
-      throw new InvalidStageException(e.toString(), e);
+      throw new InvalidStageException(message, e);
     }
     try {
       checkDBCTEnabled(connection, conf.getDbName());
