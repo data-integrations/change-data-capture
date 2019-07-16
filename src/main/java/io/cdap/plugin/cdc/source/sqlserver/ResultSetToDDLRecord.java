@@ -16,22 +16,19 @@
 
 package io.cdap.plugin.cdc.source.sqlserver;
 
-import static com.google.api.client.util.Lists.newArrayList;
-
 import com.google.common.base.Joiner;
-import com.google.common.collect.Lists;
 import io.cdap.cdap.api.data.format.StructuredRecord;
 import io.cdap.cdap.api.data.schema.Schema;
-import io.cdap.cdap.api.data.schema.Schema.Field;
 import io.cdap.plugin.DBUtils;
 import io.cdap.plugin.cdc.common.Schemas;
 import org.apache.spark.api.java.function.Function;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
+
+import static com.google.api.client.util.Lists.newArrayList;
 
 /**
  * A serializable class to allow invoking {@link scala.Function1} from Java. The function converts {@link ResultSet}
