@@ -25,6 +25,10 @@ Optional for databases that do not require authentication.
 **Database name**:  SQL Server database name which needs to be tracked. 
 Note: Change Tracking must be enabled on the database for the source to read the chage data.
 
+**Max Retry Seconds**: Maximum number of seconds to retry failures when reading change events.
+If no retries should be done, this should be set to 0.
+If there should not be a retry limit, this should be set to a negative number or left empty.
+
 SQL Server Change Tracking
 --------------------------
 Change Tracking allows to identify the rows which have changed. Change Tracking SQL Server Streaming Source leverage 

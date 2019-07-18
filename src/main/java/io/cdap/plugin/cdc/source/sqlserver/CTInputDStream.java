@@ -41,6 +41,7 @@ import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
@@ -49,17 +50,48 @@ import java.util.stream.Collectors;
 public class CTInputDStream extends InputDStream<StructuredRecord> {
   private static final Logger LOG = LoggerFactory.getLogger(CTInputDStream.class);
   private final JdbcRDD.ConnectionFactory connectionFactory;
+  private final long maxRetrySeconds;
   private long trackingOffset;
+  private long failureStartTime;
+  private boolean isFailing;
 
-  CTInputDStream(StreamingContext ssc, JdbcRDD.ConnectionFactory connectionFactory) {
+  CTInputDStream(StreamingContext ssc, JdbcRDD.ConnectionFactory connectionFactory,
+                 long maxRetrySeconds) {
     super(ssc, ClassTag$.MODULE$.apply(StructuredRecord.class));
     this.connectionFactory = connectionFactory;
+    this.maxRetrySeconds = maxRetrySeconds;
     // if not current tracking version is given initialize it to 0
     trackingOffset = 0;
   }
 
   @Override
   public Option<RDD<StructuredRecord>> compute(Time validTime) {
+    try {
+      return doCompute(validTime);
+    } catch (Exception e) {
+      if (shouldFail()) {
+        throw Throwables.propagate(e);
+      } else {
+        if (!isFailing) {
+          failureStartTime = nowInSeconds();
+        }
+        isFailing = true;
+        LOG.warn("Failed to read events. Will retry at the next interval.", e);
+      }
+      return Option.empty();
+    }
+  }
+
+  private boolean shouldFail() {
+    long timeElapsed = nowInSeconds() - failureStartTime;
+    return maxRetrySeconds == 0 || (isFailing && timeElapsed > maxRetrySeconds);
+  }
+
+  private static long nowInSeconds() {
+    return TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis());
+  }
+
+  private Option<RDD<StructuredRecord>> doCompute(Time validTime) throws Exception {
     try (Connection connection = connectionFactory.getConnection()) {
       // get the table information of all tables which have ct enabled.
       List<TableInformation> tableInformations = getCTEnabledTables(connection);
@@ -92,8 +124,6 @@ public class CTInputDStream extends InputDStream<StructuredRecord> {
       // this microbatch appear before DML. Its the caller's responsibility to order it in this way
       RDD<StructuredRecord> changes = getJavaSparkContext().union(changeRDDs.pollFirst(), changeRDDs).rdd();
       return Option.apply(changes);
-    } catch (Exception e) {
-      throw Throwables.propagate(e);
     }
   }
 

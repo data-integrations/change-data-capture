@@ -35,6 +35,7 @@ public class CTSQLServerConfig extends CDCReferencePluginConfig {
   public static final String USERNAME = "username";
   public static final String PASSWORD = "password";
   public static final String DATABASE_NAME = "dbname";
+  public static final String MAX_RETRY_SECONDS = "maxRetrySeconds";
 
   @Name(HOST_NAME)
   @Description("SQL Server hostname. Ex: mysqlsever.net")
@@ -65,11 +66,19 @@ public class CTSQLServerConfig extends CDCReferencePluginConfig {
   @Macro
   private final String password;
 
+  @Name(MAX_RETRY_SECONDS)
+  @Description("Maximum amount of time to retry reading change events if there is an error. "
+    + "If no retries should be done, this should be set to 0. "
+    + "If there should not be a retry limit, this should be set to a negative number or left empty.")
+  @Nullable
+  private final Long maxRetrySeconds;
+
   public CTSQLServerConfig() {
     super("");
     port = 1433;
     username = null;
     password = null;
+    maxRetrySeconds = -1L;
   }
 
   public CTSQLServerConfig(String referenceName, String hostname, int port, String dbName, String username,
@@ -80,6 +89,7 @@ public class CTSQLServerConfig extends CDCReferencePluginConfig {
     this.dbName = dbName;
     this.username = username;
     this.password = password;
+    this.maxRetrySeconds = 0L;
   }
 
   public String getHostname() {
@@ -102,6 +112,10 @@ public class CTSQLServerConfig extends CDCReferencePluginConfig {
   @Nullable
   public String getPassword() {
     return password;
+  }
+
+  public long getMaxRetrySeconds() {
+    return maxRetrySeconds == null ? -1L : maxRetrySeconds;
   }
 
   @Override
