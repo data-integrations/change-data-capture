@@ -44,6 +44,11 @@
           "label": "Database name",
           "name": "dbname",
           "description": "SQL Server database name which needs to be tracked. Note: Change Tracking must be enabled on the database for the source to read the chage data"
+        },
+        {
+          "widget-type": "textbox",
+          "label": "Max Retry Seconds",
+          "name": "maxRetrySeconds"
         }
       ]
     }
@@ -52,12 +57,61 @@
     {
       "widget-type": "non-editable-schema-editor",
       "schema": {
-        "name": "CDCRecord",
+        "name": "changeRecord",
         "type": "record",
         "fields": [
           {
-            "name": "cdcMessage",
-            "type": "bytes"
+            "name": "ddl",
+            "type": [
+              {
+                "type": "record",
+                "name": "DDLRecord",
+                "fields": [
+                  { "name": "table", "type":  "string" },
+                  { "name":  "schema", "type":  "string" }
+                ]
+              },
+              "null"
+            ]
+          },
+          {
+            "name": "dml",
+            "type": [
+              {
+                "type": "record",
+                "name": "DMLRecord",
+                "fields": [
+                  {
+                    "name": "op_type",
+                    "type": {
+                      "symbols": [ "INSERT", "UPDATE", "DELETE" ],
+                      "type": "enum"
+                    }
+                  },
+                  { "name": "table", "type": "string" },
+                  { "name": "primary_keys", "type": { "type": "array", "items": "string" } },
+                  { "name": "rows_schema", "type": "string" },
+                  {
+                    "name": "rows_values",
+                    "type": {
+                      "type": "map",
+                      "keys": "string",
+                      "values": [
+                        "null",
+                        "boolean",
+                        "int",
+                        "long",
+                        "float",
+                        "double",
+                        "bytes",
+                        "string"
+                      ]
+                    }
+                  }
+                ]
+              },
+              "null"
+            ]
           }
         ]
       }
