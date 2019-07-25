@@ -37,6 +37,8 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
@@ -51,17 +53,21 @@ public class CTInputDStream extends InputDStream<StructuredRecord> {
   private static final Logger LOG = LoggerFactory.getLogger(CTInputDStream.class);
   private final JdbcRDD.ConnectionFactory connectionFactory;
   private final long maxRetrySeconds;
+  private final int maxBatchSize;
+  private final Set<String> tableWhitelist;
   private long trackingOffset;
   private long failureStartTime;
   private boolean isFailing;
 
   CTInputDStream(StreamingContext ssc, JdbcRDD.ConnectionFactory connectionFactory,
-                 long maxRetrySeconds) {
+                 Set<String> tableWhitelist, long startingOffset, long maxRetrySeconds, int maxBatchSize) {
     super(ssc, ClassTag$.MODULE$.apply(StructuredRecord.class));
     this.connectionFactory = connectionFactory;
     this.maxRetrySeconds = maxRetrySeconds;
+    this.maxBatchSize = maxBatchSize;
+    this.tableWhitelist = Collections.unmodifiableSet(new HashSet<>(tableWhitelist));
     // if not current tracking version is given initialize it to 0
-    trackingOffset = 0;
+    trackingOffset = startingOffset;
   }
 
   @Override
@@ -106,7 +112,8 @@ public class CTInputDStream extends InputDStream<StructuredRecord> {
 
       // retrieve the current highest tracking version
       long prev = trackingOffset;
-      long cur = getCurrentTrackingVersion(connection);
+      long cur = Math.min(getCurrentTrackingVersion(connection), prev + maxBatchSize);
+      LOG.info("Fetching changes from {} to {}", prev, cur);
       // get all the data changes (DML) for the ct enabled tables till current tracking version
       for (TableInformation tableInformation : tableInformations) {
         changeRDDs.add(getChangeData(tableInformation, prev, cur));
@@ -139,16 +146,20 @@ public class CTInputDStream extends InputDStream<StructuredRecord> {
   }
 
   private JavaRDD<StructuredRecord> getChangeData(TableInformation tableInformation, long prev, long cur) {
-    String stmt = String.format("SELECT [CT].[SYS_CHANGE_VERSION], [CT].[SYS_CHANGE_CREATION_VERSION], " +
-                                  "[CT].[SYS_CHANGE_OPERATION], %s, %s FROM [%s] as [CI] RIGHT OUTER JOIN " +
+    String stmt = String.format("SELECT [CT].[SYS_CHANGE_VERSION] as CHANGE_TRACKING_VERSION, " +
+                                  "[CT].[SYS_CHANGE_CREATION_VERSION], " +
+                                  "[CT].[SYS_CHANGE_OPERATION], " +
+                                  "CURRENT_TIMESTAMP as CDC_CURRENT_TIMESTAMP, " +
+                                  "%s, %s FROM [%s] (nolock) " +
+                                  "as [CI] RIGHT OUTER JOIN " +
                                   "CHANGETABLE (CHANGES [%s], %s) as [CT] on %s where [CT]" +
                                   ".[SYS_CHANGE_VERSION] > ? " +
                                   "and [CT].[SYS_CHANGE_VERSION] <= ? ORDER BY [CT]" +
                                   ".[SYS_CHANGE_VERSION]",
                                 getSelectColumns("CT", tableInformation.getPrimaryKeys()),
                                 getSelectColumns("CI", tableInformation.getValueColumnNames()),
-                                tableInformation.getName(), tableInformation.getName(), prev, getJoinCondition
-                                  (tableInformation.getPrimaryKeys()));
+                                tableInformation.getName(), tableInformation.getName(), prev,
+                                getJoinCondition(tableInformation.getPrimaryKeys()));
 
     LOG.debug("Querying for change data with statement {}", stmt);
 
@@ -161,14 +172,14 @@ public class CTInputDStream extends InputDStream<StructuredRecord> {
     ResultSet resultSet = connection.createStatement().executeQuery("SELECT CHANGE_TRACKING_CURRENT_VERSION()");
     long changeVersion = 0;
     if (resultSet.next()) {
-      LOG.debug("Current tracking version is {}", changeVersion);
       changeVersion = resultSet.getLong(1);
+      LOG.debug("Current tracking version is {}", changeVersion);
     }
     return changeVersion;
   }
 
   private JavaRDD<StructuredRecord> getColumns(TableInformation tableInformation) {
-    String stmt = String.format("SELECT TOP 1 * FROM [%s].[%s] where ?=?", tableInformation.getSchemaName(),
+    String stmt = String.format("SELECT TOP 1 * FROM [%s].[%s](nolock) where ?=?", tableInformation.getSchemaName(),
                                 tableInformation.getName());
     return JdbcRDD.create(getJavaSparkContext(), connectionFactory, stmt, 1, 1, 1,
                           new ResultSetToDDLRecord(tableInformation.getSchemaName(), tableInformation.getName()));
@@ -179,7 +190,7 @@ public class CTInputDStream extends InputDStream<StructuredRecord> {
   }
 
   private Set<String> getColumns(Connection connection, String schema, String table) throws SQLException {
-    String query = String.format("SELECT * from [%s].[%s]", schema, table);
+    String query = String.format("SELECT TOP 1 * from [%s].[%s](nolock)", schema, table);
     Statement statement = connection.createStatement();
     statement.setMaxRows(1);
     ResultSet resultSet = statement.executeQuery(query);
@@ -216,9 +227,11 @@ public class CTInputDStream extends InputDStream<StructuredRecord> {
       while (rs.next()) {
         String schemaName = rs.getString("schema_name");
         String tableName = rs.getString("table_name");
-        tableInformations.add(new TableInformation(schemaName, tableName,
-                                                   getColumns(connection, schemaName, tableName),
-                                                   getKeyColumns(connection, schemaName, tableName)));
+        if (tableWhitelist.isEmpty() || tableWhitelist.contains(tableName)) {
+          tableInformations.add(new TableInformation(schemaName, tableName,
+                                                     getColumns(connection, schemaName, tableName),
+                                                     getKeyColumns(connection, schemaName, tableName)));
+        }
       }
       return tableInformations;
     }

@@ -23,6 +23,10 @@ import io.cdap.cdap.api.plugin.PluginConfig;
 import io.cdap.cdap.etl.api.validation.InvalidConfigPropertyException;
 import io.cdap.plugin.cdc.common.CDCReferencePluginConfig;
 
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /**
@@ -35,7 +39,10 @@ public class CTSQLServerConfig extends CDCReferencePluginConfig {
   public static final String USERNAME = "username";
   public static final String PASSWORD = "password";
   public static final String DATABASE_NAME = "dbname";
+  public static final String SEQUENCE_START_NUM = "sequenceStartNum";
   public static final String MAX_RETRY_SECONDS = "maxRetrySeconds";
+  public static final String MAX_BATCH_SIZE = "maxBatchSize";
+  public static final String TABLE_WHITELIST = "tableWhitelist";
 
   @Name(HOST_NAME)
   @Description("SQL Server hostname. Ex: mysqlsever.net")
@@ -73,23 +80,33 @@ public class CTSQLServerConfig extends CDCReferencePluginConfig {
   @Nullable
   private final Long maxRetrySeconds;
 
+  @Name(SEQUENCE_START_NUM)
+  @Description("The Change Tracking sequence number to start from.")
+  @Nullable
+  private final Long sequenceStartNum;
+
+  @Name(MAX_BATCH_SIZE)
+  @Description("Maximum number of changes to consume in a single batch interval.")
+  @Nullable
+  private final Integer maxBatchSize;
+
+  @Name(TABLE_WHITELIST)
+  @Description("A whitelist of tables to consume changes from. "
+    + "If none is specified, changes from all tables will be consumed.")
+  @Nullable
+  private final String tableWhitelist;
+
   public CTSQLServerConfig() {
     super("");
-    port = 1433;
-    username = null;
-    password = null;
-    maxRetrySeconds = -1L;
-  }
-
-  public CTSQLServerConfig(String referenceName, String hostname, int port, String dbName, String username,
-                           String password) {
-    super(referenceName);
-    this.hostname = hostname;
-    this.port = port;
-    this.dbName = dbName;
-    this.username = username;
-    this.password = password;
-    this.maxRetrySeconds = 0L;
+    this.hostname = null;
+    this.port = 1433;
+    this.dbName = null;
+    this.username = null;
+    this.password = null;
+    this.sequenceStartNum = 0L;
+    this.maxRetrySeconds = -1L;
+    this.maxBatchSize = 100000;
+    this.tableWhitelist = null;
   }
 
   public String getHostname() {
@@ -114,8 +131,21 @@ public class CTSQLServerConfig extends CDCReferencePluginConfig {
     return password;
   }
 
+  public long getSequenceStartNum() {
+    return sequenceStartNum == null ? 0L : sequenceStartNum;
+  }
+
   public long getMaxRetrySeconds() {
     return maxRetrySeconds == null ? -1L : maxRetrySeconds;
+  }
+
+  public int getMaxBatchSize() {
+    return maxBatchSize == null ? 100000 : maxBatchSize;
+  }
+
+  public Set<String> getTableWhitelist() {
+    return tableWhitelist == null ? Collections.emptySet() :
+      Arrays.stream(tableWhitelist.split(",")).map(String::trim).collect(Collectors.toSet());
   }
 
   @Override

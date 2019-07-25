@@ -1,0 +1,22 @@
+{
+  "metadata": {
+    "spec-version": "1.5"
+  },
+  "display-name": "DML Flattener",
+  "configuration-groups": [
+    {
+      "label": "Basic",
+      "properties": [ ]
+    }
+  ],
+  "outputs": [
+    {
+      "name": "schema",
+      "widget-type": "schema",
+      "widget-attributes": {
+        "schema-default-type": "string"
+      }
+    }
+  ]
+}
+
