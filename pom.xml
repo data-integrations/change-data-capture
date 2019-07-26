@@ -516,11 +516,6 @@
     </dependency>
     <!-- Dependency for sql server ct-->
     <dependency>
-      <groupId>io.cdap.plugin</groupId>
-      <artifactId>database-plugins</artifactId>
-      <version>${hydrator.version}</version>
-    </dependency>
-    <dependency>
       <groupId>com.microsoft.sqlserver</groupId>
       <artifactId>mssql-jdbc</artifactId>
       <version>${mssql.jdbc.version}</version>

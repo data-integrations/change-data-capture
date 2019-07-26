@@ -20,10 +20,12 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.Lists;
 import io.cdap.cdap.api.data.format.StructuredRecord;
 import io.cdap.cdap.api.data.schema.Schema;
-import io.cdap.plugin.DBUtils;
 import io.cdap.plugin.cdc.common.OperationType;
 import io.cdap.plugin.cdc.common.Schemas;
+import io.cdap.plugin.cdc.source.DBUtils;
 import org.apache.spark.api.java.function.Function;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.sql.Date;
 import java.sql.ResultSet;
@@ -40,7 +42,8 @@ import java.util.Map;
  * to {@link StructuredRecord} for dml records
  */
 public class ResultSetToDMLRecord implements Function<ResultSet, StructuredRecord> {
-  private static final int CHANGE_TABLE_COLUMNS_SIZE = 3;
+  private static final Logger LOG = LoggerFactory.getLogger(ResultSetToDMLRecord.class);
+  private static final int CHANGE_TABLE_COLUMNS_SIZE = 4;
   private final TableInformation tableInformation;
 
   ResultSetToDMLRecord(TableInformation tableInformation) {
@@ -58,6 +61,7 @@ public class ResultSetToDMLRecord implements Function<ResultSet, StructuredRecor
       .set(Schemas.OP_TYPE_FIELD, operationType.name())
       .set(Schemas.UPDATE_SCHEMA_FIELD, changeSchema.toString())
       .set(Schemas.UPDATE_VALUES_FIELD, getChangeData(row, changeSchema))
+      .set(Schemas.CHANGE_TRACKING_VERSION, row.getString("CHANGE_TRACKING_VERSION"))
       .build();
   }
 
@@ -65,11 +69,13 @@ public class ResultSetToDMLRecord implements Function<ResultSet, StructuredRecor
     ResultSetMetaData metadata = resultSet.getMetaData();
     Map<String, Object> changes = new HashMap<>();
     for (int i = 0; i < changeSchema.getFields().size(); i++) {
-      int column = i + CHANGE_TABLE_COLUMNS_SIZE;
+      Schema.Field field = changeSchema.getFields().get(i);
+      // Ignore the first CHANGE_TABLE_COLUMN_SIZE columns since those are change tracking data and not the
+      // actual row data. Add 1 because ResultSetMetaData starts from 1, not 0.
+      int column = 1 + i + CHANGE_TABLE_COLUMNS_SIZE;
       int sqlType = metadata.getColumnType(column);
       int sqlPrecision = metadata.getPrecision(column);
       int sqlScale = metadata.getScale(column);
-      Schema.Field field = changeSchema.getFields().get(i);
       Object sqlValue = DBUtils.transformValue(sqlType, sqlPrecision, sqlScale, resultSet, field.getName());
       Object javaValue = transformSQLToJavaType(sqlValue);
       changes.put(field.getName(), javaValue);
@@ -79,7 +85,7 @@ public class ResultSetToDMLRecord implements Function<ResultSet, StructuredRecor
 
   private static Schema getChangeSchema(ResultSet resultSet) throws SQLException {
     List<Schema.Field> schemaFields = DBUtils.getSchemaFields(resultSet);
-    // drop first three columns as they are from change tracking tables and does not represent the change data
+    // drop first four columns as they are from change tracking tables and does not represent the change data
     return Schema.recordOf(Schemas.SCHEMA_RECORD,
                            schemaFields.subList(CHANGE_TABLE_COLUMNS_SIZE, schemaFields.size()));
   }
