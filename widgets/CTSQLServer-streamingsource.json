@@ -4,28 +4,13 @@
   },
   "configuration-groups": [
     {
-      "label": "CT SQL Server Configuration",
+      "label": "Basic",
       "properties": [
         {
           "widget-type": "textbox",
           "label": "Reference Name",
           "name": "referenceName",
           "description": "Reference specifies the name to be used to track this external source"
-        },
-        {
-          "widget-type": "textbox",
-          "label": "Hostname",
-          "name": "hostname",
-          "description": "Hostname of the SQL Server from which the data needs to be offloaded. Ex: mysqlserver.net or 12.123.12.123"
-        },
-        {
-          "widget-type": "textbox",
-          "label": "Port",
-          "name": "port",
-          "description": "SQL Server Port",
-          "widget-attributes": {
-            "default": "1433"
-          }
         },
         {
           "widget-type": "textbox",
@@ -46,6 +31,52 @@
           "description": "SQL Server database name which needs to be tracked. Note: Change Tracking must be enabled on the database for the source to read the chage data"
         },
         {
+          "widget-type": "csv",
+          "label": "Table Whitelist",
+          "name": "tableWhitelist"
+        }
+      ]
+    },
+    {
+      "label": "Connection",
+      "properties": [
+        {
+          "widget-type": "textbox",
+          "label": "Hostname",
+          "name": "hostname",
+          "widget-attributes": {
+            "placeholder": "SQL Server hostname"
+          }
+        },
+        {
+          "widget-type": "textbox",
+          "label": "Port",
+          "name": "port",
+          "widget-attributes": {
+            "placeholder": "SQL Server Port. Ex: 1433"
+          }
+        }
+      ]
+    },
+    {
+      "label": "Custom JDBC Connection",
+      "properties": [
+        {
+          "widget-type": "textbox",
+          "label": "JDBC Plugin Name",
+          "name": "jdbcPluginName"
+        },
+        {
+          "widget-type": "textbox",
+          "label": "Connection String",
+          "name": "connectionString"
+        }
+      ]
+    },
+    {
+      "label": "Advanced",
+      "properties": [
+        {
           "widget-type": "textbox",
           "label": "Max Retry Seconds",
           "name": "maxRetrySeconds"
@@ -65,11 +96,6 @@
           "widget-attributes": {
             "default": "0"
           }
-        },
-        {
-          "widget-type": "csv",
-          "label": "Table Whitelist",
-          "name": "tableWhitelist"
         }
       ]
     }

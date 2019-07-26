@@ -14,15 +14,20 @@
  * the License.
  */
 
-package io.cdap.plugin.cdc.source;
+package io.cdap.plugin.cdc.common;
 
 import com.google.common.collect.Lists;
 import io.cdap.cdap.api.data.schema.Schema;
 import io.cdap.cdap.api.data.schema.UnsupportedTypeException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.lang.reflect.Field;
 import java.math.BigDecimal;
 import java.sql.Blob;
 import java.sql.Clob;
+import java.sql.Driver;
+import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
@@ -34,7 +39,31 @@ import javax.annotation.Nullable;
  * Utility methods for Database plugins shared by Database plugins.
  */
 public final class DBUtils {
+  private static final Logger LOG = LoggerFactory.getLogger(DBUtils.class);
 
+  /**
+   * Ensures that the JDBC Driver specified in configuration is available and can be loaded. Also registers it with
+   * {@link DriverManager} if it is not already registered.
+   */
+  public static DriverCleanup ensureJDBCDriverIsAvailable(Class<? extends Driver> jdbcDriverClass,
+                                                          String connectionString)
+    throws IllegalAccessException, InstantiationException, SQLException {
+
+    try {
+      DriverManager.getDriver(connectionString);
+      return new DriverCleanup(null);
+    } catch (SQLException e) {
+      // Driver not found. We will try to register it with the DriverManager.
+      final JDBCDriverShim driverShim = new JDBCDriverShim(jdbcDriverClass.newInstance());
+      try {
+        DBUtils.deregisterAllDrivers(jdbcDriverClass);
+      } catch (NoSuchFieldException | ClassNotFoundException e1) {
+        LOG.error("Unable to deregister JDBC Driver class {}", jdbcDriverClass);
+      }
+      DriverManager.registerDriver(driverShim);
+      return new DriverCleanup(driverShim);
+    }
+  }
 
   /**
    * Given the result set, get the metadata of the result set and return
@@ -177,6 +206,38 @@ public final class DBUtils {
       }
     }
     return original;
+  }
+
+  /**
+   * De-register all SQL drivers that are associated with the class
+   */
+  public static void deregisterAllDrivers(Class<? extends Driver> driverClass)
+    throws NoSuchFieldException, IllegalAccessException, ClassNotFoundException {
+    Field field = DriverManager.class.getDeclaredField("registeredDrivers");
+    field.setAccessible(true);
+    List<?> list = (List<?>) field.get(null);
+    for (Object driverInfo : list) {
+      Class<?> driverInfoClass = DBUtils.class.getClassLoader().loadClass("java.sql.DriverInfo");
+      Field driverField = driverInfoClass.getDeclaredField("driver");
+      driverField.setAccessible(true);
+      Driver d = (Driver) driverField.get(driverInfo);
+      if (d == null) {
+        LOG.trace("Could not find driver %s", driverInfo);
+        continue;
+      }
+      LOG.trace("Removing non-null driver object from drivers list.");
+      ClassLoader registeredDriverClassLoader = d.getClass().getClassLoader();
+      if (registeredDriverClassLoader == null) {
+        LOG.trace("Found null classloader for default driver {}. Ignoring since this may be using system classloader.",
+                  d.getClass().getName());
+        continue;
+      }
+      // Remove all objects in this list that were created using the classloader of the caller.
+      if (d.getClass().getClassLoader().equals(driverClass.getClassLoader())) {
+        LOG.trace("Removing default driver {} from registeredDrivers", d.getClass().getName());
+        list.remove(driverInfo);
+      }
+    }
   }
 
   private DBUtils() {

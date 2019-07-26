@@ -19,8 +19,8 @@ package io.cdap.plugin.cdc.source.sqlserver;
 import com.google.common.base.Joiner;
 import io.cdap.cdap.api.data.format.StructuredRecord;
 import io.cdap.cdap.api.data.schema.Schema;
+import io.cdap.plugin.cdc.common.DBUtils;
 import io.cdap.plugin.cdc.common.Schemas;
-import io.cdap.plugin.cdc.source.DBUtils;
 import org.apache.spark.api.java.function.Function;
 
 import java.sql.ResultSet;

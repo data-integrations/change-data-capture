@@ -17,7 +17,6 @@
 package io.cdap.plugin.cdc.source.sqlserver;
 
 import io.cdap.cdap.api.annotation.Description;
-import io.cdap.cdap.api.annotation.Macro;
 import io.cdap.cdap.api.annotation.Name;
 import io.cdap.cdap.api.plugin.PluginConfig;
 import io.cdap.cdap.etl.api.validation.InvalidConfigPropertyException;
@@ -43,34 +42,34 @@ public class CTSQLServerConfig extends CDCReferencePluginConfig {
   public static final String MAX_RETRY_SECONDS = "maxRetrySeconds";
   public static final String MAX_BATCH_SIZE = "maxBatchSize";
   public static final String TABLE_WHITELIST = "tableWhitelist";
+  public static final String JDBC_PLUGIN_NAME = "jdbcPluginName";
+  public static final String CONNECTION_STRING = "connectionString";
 
   @Name(HOST_NAME)
-  @Description("SQL Server hostname. Ex: mysqlsever.net")
-  @Macro
-  private String hostname;
+  @Description("SQL Server hostname. This is not required if a connection string was specified.")
+  @Nullable
+  private final String hostname;
 
   @Name(PORT)
-  @Description("SQL Server port. Defaults to 1433")
-  @Macro
-  private final int port;
+  @Description("SQL Server port. This is not required if a connection string was specified.")
+  @Nullable
+  private final Integer port;
 
   @Name(DATABASE_NAME)
   @Description("SQL Server database name. Note: CT must be enabled on the database for change tracking.")
-  @Macro
+  @Nullable
   private String dbName;
 
   @Name(USERNAME)
   @Description("User to use to connect to the specified database. Required for databases that " +
     "need authentication. Optional for databases that do not require authentication.")
   @Nullable
-  @Macro
   private final String username;
 
   @Name(PASSWORD)
   @Description("Password to use to connect to the specified database. Required for databases that " +
     "need authentication. Optional for databases that do not require authentication.")
   @Nullable
-  @Macro
   private final String password;
 
   @Name(MAX_RETRY_SECONDS)
@@ -96,6 +95,15 @@ public class CTSQLServerConfig extends CDCReferencePluginConfig {
   @Nullable
   private final String tableWhitelist;
 
+  @Description("Name of the JDBC plugin to use if something different than the built-in sql server driver is required.")
+  @Nullable
+  private final String jdbcPluginName;
+
+  @Description("Connection string to use when connecting to the database through JDBC. "
+    + "This is required if a JDBC plugin was specified.")
+  @Nullable
+  private final String connectionString;
+
   public CTSQLServerConfig() {
     super("");
     this.hostname = null;
@@ -107,6 +115,8 @@ public class CTSQLServerConfig extends CDCReferencePluginConfig {
     this.maxRetrySeconds = -1L;
     this.maxBatchSize = 100000;
     this.tableWhitelist = null;
+    this.jdbcPluginName = null;
+    this.connectionString = null;
   }
 
   public String getHostname() {
@@ -148,10 +158,40 @@ public class CTSQLServerConfig extends CDCReferencePluginConfig {
       Arrays.stream(tableWhitelist.split(",")).map(String::trim).collect(Collectors.toSet());
   }
 
+  @Nullable
+  public String getJdbcPluginName() {
+    return jdbcPluginName;
+  }
+
+  public String getConnectionString() {
+    if (connectionString != null) {
+      return connectionString;
+    }
+    return String.format("jdbc:sqlserver://%s:%s;DatabaseName=%s", hostname, port, dbName);
+  }
+
   @Override
   public void validate() {
     super.validate();
-    if (!containsMacro(PORT) && (port < 0 || port > 65535)) {
+    if (jdbcPluginName != null && connectionString == null) {
+      throw new InvalidConfigPropertyException(
+        "A connection string must be specified when a custom jdbc driver is used.", CONNECTION_STRING);
+    }
+
+    if (dbName == null) {
+      throw new InvalidConfigPropertyException("A database name must be specified", DATABASE_NAME);
+    }
+
+    if (connectionString == null) {
+      if (hostname == null) {
+        throw new InvalidConfigPropertyException("A hostname must be specified", HOST_NAME);
+      }
+      if (port == null) {
+        throw new InvalidConfigPropertyException("A port must be specified", PORT);
+      }
+    }
+
+    if (port != null && (port < 0 || port > 65535)) {
       throw new InvalidConfigPropertyException("Port number should be in range 0-65535", PORT);
     }
   }

@@ -20,9 +20,9 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.Lists;
 import io.cdap.cdap.api.data.format.StructuredRecord;
 import io.cdap.cdap.api.data.schema.Schema;
+import io.cdap.plugin.cdc.common.DBUtils;
 import io.cdap.plugin.cdc.common.OperationType;
 import io.cdap.plugin.cdc.common.Schemas;
-import io.cdap.plugin.cdc.source.DBUtils;
 import org.apache.spark.api.java.function.Function;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -62,6 +62,7 @@ public class ResultSetToDMLRecord implements Function<ResultSet, StructuredRecor
       .set(Schemas.UPDATE_SCHEMA_FIELD, changeSchema.toString())
       .set(Schemas.UPDATE_VALUES_FIELD, getChangeData(row, changeSchema))
       .set(Schemas.CHANGE_TRACKING_VERSION, row.getString("CHANGE_TRACKING_VERSION"))
+      .set(Schemas.CDC_CURRENT_TIMESTAMP, row.getTimestamp("CDC_CURRENT_TIMESTAMP").getTime() * 1000)
       .build();
   }
 

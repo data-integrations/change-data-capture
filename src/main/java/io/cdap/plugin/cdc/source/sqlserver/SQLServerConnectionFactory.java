@@ -28,12 +28,12 @@ import java.sql.DriverManager;
  * Note: This class does not do any connection management. Its the responsibility of the client
  * to manage/close the connection.
  */
-class SQLServerConnection implements JdbcRDD.ConnectionFactory {
+class SQLServerConnectionFactory implements JdbcRDD.ConnectionFactory {
   private final String connectionUrl;
   private final String userName;
   private final String password;
 
-  SQLServerConnection(String connectionUrl, String userName, String password) {
+  SQLServerConnectionFactory(String connectionUrl, String userName, String password) {
     this.connectionUrl = connectionUrl;
     this.userName = userName;
     this.password = password;
