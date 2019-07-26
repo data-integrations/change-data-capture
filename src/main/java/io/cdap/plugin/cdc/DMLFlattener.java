@@ -43,11 +43,13 @@ import javax.annotation.Nullable;
 public class DMLFlattener extends Transform<StructuredRecord, StructuredRecord> {
   private static final String OP_TYPE = "CDC_OP_TYPE";
   private static final String CHANGE_TRACKING_VERSION = "CHANGE_TRACKING_VERSION";
+  private static final String CDC_TIMESTAMP = "CDC_CURRENT_TIMESTAMP";
   private final Conf conf;
   private Map<Schema, Schema> schemaCache;
   private Schema configuredOutputSchema;
   private boolean addOpType = false;
   private boolean addTrackingVersion = false;
+  private boolean addTimestamp = false;
 
   public DMLFlattener(Conf conf) {
     this.conf = conf;
@@ -69,6 +71,7 @@ public class DMLFlattener extends Transform<StructuredRecord, StructuredRecord> 
     configuredOutputSchema = conf.schema == null ? null : Schema.parseJson(conf.schema);
     addOpType = configuredOutputSchema.getField(OP_TYPE) != null;
     addTrackingVersion = configuredOutputSchema.getField(CHANGE_TRACKING_VERSION) != null;
+    addTimestamp = configuredOutputSchema.getField(CDC_TIMESTAMP) != null;
     schemaCache = new HashMap<>();
   }
 
@@ -89,6 +92,9 @@ public class DMLFlattener extends Transform<StructuredRecord, StructuredRecord> 
     if (addTrackingVersion) {
       output.set(CHANGE_TRACKING_VERSION, dml.get("change_tracking_version"));
     }
+    if (addTimestamp) {
+      output.set(CDC_TIMESTAMP, dml.get("cdc_current_timestamp"));
+    }
     Map<String, Object> valueMap = dml.get("rows_values");
     if (valueMap == null) {
       valueMap = new HashMap<>();
@@ -102,7 +108,8 @@ public class DMLFlattener extends Transform<StructuredRecord, StructuredRecord> 
   private Schema createOutputSchema(Schema rowSchema) {
     // the transform optionally adds a OP_TYPE field and CHANGE_TRACKING_VERSION field that do not come from the
     // actual row data, but from general change tracking information.
-    int numFields = rowSchema.getFields().size() + (addOpType ? 1 : 0) + (addTrackingVersion ? 1 : 0);
+    int numFields = rowSchema.getFields().size() + (addOpType ? 1 : 0) +
+      (addTrackingVersion ? 1 : 0) + (addTimestamp ? 1 : 0);
     List<Schema.Field> fields = new ArrayList<>(numFields);
     fields.addAll(rowSchema.getFields());
     if (addOpType) {
@@ -110,6 +117,9 @@ public class DMLFlattener extends Transform<StructuredRecord, StructuredRecord> 
     }
     if (addTrackingVersion) {
       fields.add(Schema.Field.of(CHANGE_TRACKING_VERSION, Schema.of(Schema.Type.STRING)));
+    }
+    if (addTimestamp) {
+      fields.add(Schema.Field.of(CDC_TIMESTAMP, Schema.of(Schema.LogicalType.TIMESTAMP_MICROS)));
     }
     return Schema.recordOf(rowSchema + ".added", fields);
   }

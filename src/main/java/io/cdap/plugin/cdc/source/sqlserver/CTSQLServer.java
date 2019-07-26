@@ -21,14 +21,19 @@ import io.cdap.cdap.api.annotation.Name;
 import io.cdap.cdap.api.annotation.Plugin;
 import io.cdap.cdap.api.data.format.StructuredRecord;
 import io.cdap.cdap.api.dataset.DatasetProperties;
+import io.cdap.cdap.api.plugin.PluginProperties;
 import io.cdap.cdap.etl.api.PipelineConfigurer;
 import io.cdap.cdap.etl.api.streaming.StreamingContext;
 import io.cdap.cdap.etl.api.streaming.StreamingSource;
+import io.cdap.cdap.etl.api.validation.InvalidConfigPropertyException;
 import io.cdap.cdap.etl.api.validation.InvalidStageException;
+import io.cdap.plugin.cdc.common.DBUtils;
+import io.cdap.plugin.cdc.common.DriverCleanup;
 import io.cdap.plugin.cdc.common.Schemas;
 import io.cdap.plugin.common.Constants;
 import org.apache.spark.api.java.Optional;
 import org.apache.spark.api.java.function.Function4;
+import org.apache.spark.rdd.JdbcRDD;
 import org.apache.spark.streaming.State;
 import org.apache.spark.streaming.StateSpec;
 import org.apache.spark.streaming.Time;
@@ -40,6 +45,8 @@ import scala.reflect.ClassTag;
 import scala.reflect.ClassTag$;
 
 import java.sql.Connection;
+import java.sql.Driver;
+import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -53,14 +60,12 @@ import java.util.Map;
 @Name("CTSQLServer")
 @Description("SQL Server Change Tracking Streaming Source")
 public class CTSQLServer extends StreamingSource<StructuredRecord> {
-
   private static final Logger LOG = LoggerFactory.getLogger(CTSQLServer.class);
+  static final String JDBC_PLUGIN_ID = "jdbc";
   private final CTSQLServerConfig conf;
-  private final SQLServerConnection dbConnection;
 
   public CTSQLServer(CTSQLServerConfig conf) {
     this.conf = conf;
-    dbConnection = new SQLServerConnection(getConnectionString(), conf.getUsername(), conf.getPassword());
   }
 
   @Override
@@ -69,13 +74,37 @@ public class CTSQLServer extends StreamingSource<StructuredRecord> {
     pipelineConfigurer.createDataset(conf.referenceName, Constants.EXTERNAL_DATASET_TYPE, DatasetProperties.EMPTY);
     pipelineConfigurer.getStageConfigurer().setOutputSchema(Schemas.CHANGE_SCHEMA);
 
+    DriverCleanup driverCleanup = null;
+    JdbcRDD.ConnectionFactory connectionFactory;
+    if (conf.getJdbcPluginName() != null) {
+      Class<? extends Driver> driverClass = pipelineConfigurer.usePluginClass("jdbc", conf.getJdbcPluginName(),
+                                                                              JDBC_PLUGIN_ID,
+                                                                              PluginProperties.builder().build());
+      if (driverClass == null) {
+        throw new InvalidConfigPropertyException("Unable to find jdbc driver plugin",
+                                                 CTSQLServerConfig.JDBC_PLUGIN_NAME);
+      }
+      try {
+        driverCleanup = DBUtils.ensureJDBCDriverIsAvailable(driverClass, conf.getConnectionString());
+      } catch (IllegalAccessException | InstantiationException | SQLException e) {
+        throw new IllegalArgumentException("Unable to instantiate jdbc driver plugin: " + e.getMessage(), e);
+      }
+      connectionFactory = (JdbcRDD.ConnectionFactory) () -> DriverManager.getConnection(conf.getConnectionString(),
+                                                                                        conf.getUsername(),
+                                                                                        conf.getPassword());
+    } else {
+      connectionFactory = new SQLServerConnectionFactory(conf.getConnectionString(),
+                                                         conf.getUsername(), conf.getPassword());
+    }
+
     if (conf.getUsername() != null && conf.getPassword() != null) {
       LOG.info("Creating connection with url {}, username {}, password *****",
                getConnectionString(), conf.getUsername());
     } else {
       LOG.info("Creating connection with url {}", getConnectionString());
     }
-    try (Connection connection = dbConnection.getConnection()) {
+
+    try (Connection connection = connectionFactory.getConnection()) {
       // check that CDC is enabled on the database
       checkDBCTEnabled(connection, conf.getDbName());
     } catch (InvalidStageException e) {
@@ -83,6 +112,10 @@ public class CTSQLServer extends StreamingSource<StructuredRecord> {
       throw e;
     } catch (Exception e) {
       throw new InvalidStageException(String.format("Failed to check tracking status. Error: %s", e.getMessage()), e);
+    } finally {
+      if (driverCleanup != null) {
+        driverCleanup.destroy();
+      }
     }
   }
 
@@ -90,10 +123,20 @@ public class CTSQLServer extends StreamingSource<StructuredRecord> {
   public JavaDStream<StructuredRecord> getStream(StreamingContext context) throws Exception {
     context.registerLineage(conf.referenceName);
 
+
+    JdbcRDD.ConnectionFactory connectionFactory;
+    if (conf.getJdbcPluginName() != null) {
+      connectionFactory = new PluginConnectionFactory(context.getSparkExecutionContext().getPluginContext(),
+                                                      context.getStageName(), conf.getConnectionString());
+    } else {
+      connectionFactory = new SQLServerConnectionFactory(conf.getConnectionString(),
+                                                         conf.getUsername(), conf.getPassword());
+    }
+
     // get change information dtream. This dstream has both schema and data changes
     LOG.info("Creating change information dstream");
     ClassTag<StructuredRecord> tag = ClassTag$.MODULE$.apply(StructuredRecord.class);
-    CTInputDStream dstream = new CTInputDStream(context.getSparkStreamingContext().ssc(), dbConnection,
+    CTInputDStream dstream = new CTInputDStream(context.getSparkStreamingContext().ssc(), connectionFactory,
                                                 conf.getTableWhitelist(), conf.getSequenceStartNum(),
                                                 conf.getMaxRetrySeconds(), conf.getMaxBatchSize());
     return JavaDStream.fromDStream(dstream, tag)

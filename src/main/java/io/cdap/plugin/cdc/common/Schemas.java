@@ -45,6 +45,7 @@ public class Schemas {
   public static final String UPDATE_SCHEMA_FIELD = "rows_schema";
   public static final String UPDATE_VALUES_FIELD = "rows_values";
   public static final String CHANGE_TRACKING_VERSION = "change_tracking_version";
+  public static final String CDC_CURRENT_TIMESTAMP = "cdc_current_timestamp";
 
   public static final Schema DDL_SCHEMA = Schema.recordOf(
     "DDLRecord",
@@ -59,7 +60,8 @@ public class Schemas {
     Field.of(PRIMARY_KEYS_FIELD, Schema.arrayOf(Schema.of(Type.STRING))),
     Field.of(UPDATE_SCHEMA_FIELD, Schema.of(Type.STRING)),
     Field.of(UPDATE_VALUES_FIELD, Schema.mapOf(Schema.of(Type.STRING), SIMPLE_TYPES)),
-    Field.of(CHANGE_TRACKING_VERSION, Schema.of(Type.STRING))
+    Field.of(CHANGE_TRACKING_VERSION, Schema.of(Type.STRING)),
+    Field.of(CDC_CURRENT_TIMESTAMP, Schema.of(Schema.LogicalType.TIME_MICROS))
   );
 
   public static final Schema CHANGE_SCHEMA = Schema.recordOf(
