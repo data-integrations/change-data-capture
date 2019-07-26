@@ -100,7 +100,10 @@ public class DMLFlattener extends Transform<StructuredRecord, StructuredRecord> 
   }
 
   private Schema createOutputSchema(Schema rowSchema) {
-    List<Schema.Field> fields = new ArrayList<>(rowSchema.getFields().size() + 2);
+    // the transform optionally adds a OP_TYPE field and CHANGE_TRACKING_VERSION field that do not come from the
+    // actual row data, but from general change tracking information.
+    int numFields = rowSchema.getFields().size() + (addOpType ? 1 : 0) + (addTrackingVersion ? 1 : 0);
+    List<Schema.Field> fields = new ArrayList<>(numFields);
     fields.addAll(rowSchema.getFields());
     if (addOpType) {
       fields.add(Schema.Field.of(OP_TYPE, Schema.of(Schema.Type.STRING)));

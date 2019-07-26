@@ -69,11 +69,13 @@ public class ResultSetToDMLRecord implements Function<ResultSet, StructuredRecor
     ResultSetMetaData metadata = resultSet.getMetaData();
     Map<String, Object> changes = new HashMap<>();
     for (int i = 0; i < changeSchema.getFields().size(); i++) {
+      Schema.Field field = changeSchema.getFields().get(i);
+      // Ignore the first CHANGE_TABLE_COLUMN_SIZE columns since those are change tracking data and not the
+      // actual row data. Add 1 because ResultSetMetaData starts from 1, not 0.
       int column = 1 + i + CHANGE_TABLE_COLUMNS_SIZE;
       int sqlType = metadata.getColumnType(column);
       int sqlPrecision = metadata.getPrecision(column);
       int sqlScale = metadata.getScale(column);
-      Schema.Field field = changeSchema.getFields().get(i);
       Object sqlValue = DBUtils.transformValue(sqlType, sqlPrecision, sqlScale, resultSet, field.getName());
       Object javaValue = transformSQLToJavaType(sqlValue);
       changes.put(field.getName(), javaValue);
@@ -83,7 +85,7 @@ public class ResultSetToDMLRecord implements Function<ResultSet, StructuredRecor
 
   private static Schema getChangeSchema(ResultSet resultSet) throws SQLException {
     List<Schema.Field> schemaFields = DBUtils.getSchemaFields(resultSet);
-    // drop first three columns as they are from change tracking tables and does not represent the change data
+    // drop first four columns as they are from change tracking tables and does not represent the change data
     return Schema.recordOf(Schemas.SCHEMA_RECORD,
                            schemaFields.subList(CHANGE_TABLE_COLUMNS_SIZE, schemaFields.size()));
   }
