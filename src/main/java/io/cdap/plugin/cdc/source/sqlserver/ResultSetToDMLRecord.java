@@ -33,9 +33,11 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 /**
  * A serializable class to allow invoking {@link scala.Function1} from Java. The function converts {@link ResultSet}
@@ -93,11 +95,18 @@ public class ResultSetToDMLRecord implements Function<ResultSet, StructuredRecor
 
   private static Object transformSQLToJavaType(Object sqlValue) {
     if (sqlValue instanceof Date) {
-      return ((Date) sqlValue).getTime();
+      Date d = (Date) sqlValue;
+      // dates are number of days since the epoch
+      return (int) d.toLocalDate().toEpochDay();
     } else if (sqlValue instanceof Time) {
-      return ((Time) sqlValue).getTime();
+      // times are microseconds since midnight
+      Time t = (Time) sqlValue;
+      return TimeUnit.NANOSECONDS.toMicros(t.toLocalTime().toNanoOfDay());
     } else if (sqlValue instanceof Timestamp) {
-      return ((Timestamp) sqlValue).getTime();
+      // timestamps are in microseconds
+      Instant instant = ((Timestamp) sqlValue).toInstant();
+      long micros = TimeUnit.SECONDS.toMicros(instant.getEpochSecond());
+      return micros + TimeUnit.NANOSECONDS.toMicros(instant.getNano());
     } else {
       return sqlValue;
     }
