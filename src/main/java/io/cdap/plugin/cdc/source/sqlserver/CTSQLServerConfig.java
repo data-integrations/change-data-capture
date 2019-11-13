@@ -44,6 +44,7 @@ public class CTSQLServerConfig extends CDCReferencePluginConfig {
   public static final String TABLE_WHITELIST = "tableWhitelist";
   public static final String JDBC_PLUGIN_NAME = "jdbcPluginName";
   public static final String CONNECTION_STRING = "connectionString";
+  public static final String OPERATIONS_LIST = "operationsList";
 
   @Name(HOST_NAME)
   @Description("SQL Server hostname. This is not required if a connection string was specified.")
@@ -104,6 +105,11 @@ public class CTSQLServerConfig extends CDCReferencePluginConfig {
   @Nullable
   private final String connectionString;
 
+  @Name(OPERATIONS_LIST)
+  @Description("The list of operations to read (INSERT,UPDATE,DELETE)")
+  @Nullable
+  private final String operationsList;
+
   public CTSQLServerConfig() {
     super("");
     this.hostname = null;
@@ -117,6 +123,7 @@ public class CTSQLServerConfig extends CDCReferencePluginConfig {
     this.tableWhitelist = null;
     this.jdbcPluginName = null;
     this.connectionString = null;
+    this.operationsList = null;
   }
 
   public String getHostname() {
@@ -170,6 +177,11 @@ public class CTSQLServerConfig extends CDCReferencePluginConfig {
     return String.format("jdbc:sqlserver://%s:%s;DatabaseName=%s", hostname, port, dbName);
   }
 
+  public Set<String> getOperationsList() {
+    return operationsList == null ? Collections.emptySet() :
+            Arrays.stream(operationsList.split(",")).map(String::trim).collect(Collectors.toSet());
+  }
+
   @Override
   public void validate() {
     super.validate();
@@ -194,5 +206,10 @@ public class CTSQLServerConfig extends CDCReferencePluginConfig {
     if (port != null && (port < 0 || port > 65535)) {
       throw new InvalidConfigPropertyException("Port number should be in range 0-65535", PORT);
     }
+
+    if (operationsList == null || operationsList.length() == 0) {
+      throw new InvalidConfigPropertyException("Operations list couldn't be empty", OPERATIONS_LIST);
+    }
+
   }
 }

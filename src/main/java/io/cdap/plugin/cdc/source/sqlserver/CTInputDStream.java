@@ -58,14 +58,17 @@ public class CTInputDStream extends InputDStream<StructuredRecord> {
   private long trackingOffset;
   private long failureStartTime;
   private boolean isFailing;
+  private boolean forceFailure;
+  private final Set<String> operationsList;
 
-  CTInputDStream(StreamingContext ssc, JdbcRDD.ConnectionFactory connectionFactory,
+  CTInputDStream(StreamingContext ssc, JdbcRDD.ConnectionFactory connectionFactory, Set<String> operationsList,
                  Set<String> tableWhitelist, long startingOffset, long maxRetrySeconds, int maxBatchSize) {
     super(ssc, ClassTag$.MODULE$.apply(StructuredRecord.class));
     this.connectionFactory = connectionFactory;
     this.maxRetrySeconds = maxRetrySeconds;
     this.maxBatchSize = maxBatchSize;
     this.tableWhitelist = Collections.unmodifiableSet(new HashSet<>(tableWhitelist));
+    this.operationsList = Collections.unmodifiableSet(new HashSet<>(operationsList));
     // if not current tracking version is given initialize it to 0
     trackingOffset = startingOffset;
   }
@@ -90,7 +93,7 @@ public class CTInputDStream extends InputDStream<StructuredRecord> {
 
   private boolean shouldFail() {
     long timeElapsed = nowInSeconds() - failureStartTime;
-    return maxRetrySeconds == 0 || (isFailing && timeElapsed > maxRetrySeconds);
+    return forceFailure || maxRetrySeconds == 0 || (isFailing && timeElapsed > maxRetrySeconds);
   }
 
   private static long nowInSeconds() {
@@ -114,6 +117,13 @@ public class CTInputDStream extends InputDStream<StructuredRecord> {
       long prev = trackingOffset;
       long cur = Math.min(getCurrentTrackingVersion(connection), prev + maxBatchSize);
       LOG.info("Fetching changes from {} to {}", prev, cur);
+
+      if (cur < prev) {
+        this.forceFailure = true;
+        throw Throwables.propagate(new Exception("Current CT version is less than the previous",
+                new Error(String.format("Previous CT version: %s Current CT version: %s", prev, cur))));
+      }
+
       // get all the data changes (DML) for the ct enabled tables till current tracking version
       for (TableInformation tableInformation : tableInformations) {
         changeRDDs.add(getChangeData(tableInformation, prev, cur));
@@ -149,13 +159,15 @@ public class CTInputDStream extends InputDStream<StructuredRecord> {
     String stmt = String.format("SELECT [CT].[SYS_CHANGE_VERSION] as CHANGE_TRACKING_VERSION, " +
                                   "[CT].[SYS_CHANGE_CREATION_VERSION], " +
                                   "[CT].[SYS_CHANGE_OPERATION], " +
-                                  "CURRENT_TIMESTAMP as CDC_CURRENT_TIMESTAMP, " +
+                                  "SYSUTCDATETIME() as CDC_CURRENT_TIMESTAMP, " +
                                   "%s, %s FROM [%s] (nolock) " +
                                   "as [CI] RIGHT OUTER JOIN " +
-                                  "CHANGETABLE (CHANGES [%s], %s) as [CT] on %s where [CT]" +
-                                  ".[SYS_CHANGE_VERSION] > ? " +
-                                  "and [CT].[SYS_CHANGE_VERSION] <= ? ORDER BY [CT]" +
-                                  ".[SYS_CHANGE_VERSION]",
+                                  "CHANGETABLE (CHANGES [%s], %s) as [CT] on %s " +
+                                  "where [CT].[SYS_CHANGE_VERSION] > ? " +
+                                  "and [CT].[SYS_CHANGE_VERSION] <= ? " +
+                                  "and [CT].[SYS_CHANGE_OPERATION] IN " +
+                                  "('" + String.join("','", this.operationsList) + "') " +
+                                  "ORDER BY [CT].[SYS_CHANGE_VERSION]",
                                 getSelectColumns("CT", tableInformation.getPrimaryKeys()),
                                 getSelectColumns("CI", tableInformation.getValueColumnNames()),
                                 tableInformation.getName(), tableInformation.getName(), prev,
@@ -163,7 +175,8 @@ public class CTInputDStream extends InputDStream<StructuredRecord> {
 
     LOG.debug("Querying for change data with statement {}", stmt);
 
-    //TODO Currently we are not partitioning the data. We should partition it for scalability
+    //TODO Currently we are not partitioning the data. We should p
+    //53™1artition it for scalability
     return JdbcRDD.create(getJavaSparkContext(), connectionFactory, stmt, prev, cur, 1,
                           new ResultSetToDMLRecord(tableInformation));
   }
