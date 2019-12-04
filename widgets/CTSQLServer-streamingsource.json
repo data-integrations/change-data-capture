@@ -77,6 +77,45 @@
       "label": "Advanced",
       "properties": [
         {
+          "name": "operationsList",
+          "label": "Statements list",
+          "widget-type": "multi-select",
+          "widget-attributes": {
+            "delimiter": ",",
+            "defaultValue": [
+              "I",
+              "U"
+            ],
+            "options": [
+              {
+                "id": "I",
+                "label": "INSERT"
+              },
+              {
+                "id": "U",
+                "label": "UPDATE"
+              },
+              {
+                "id": "D",
+                "label": "DELETE"
+              }
+            ]
+          }
+        },
+        {
+          "widget-type": "textbox",
+          "label": "Retention period (days)",
+          "name": "retentionDays",
+          "widget-attributes": {
+            "default": "0"
+          }
+        },
+        {
+          "widget-type": "textbox",
+          "label": "Retention timestamp column",
+          "name": "retentionColumn"
+        },
+        {
           "widget-type": "textbox",
           "label": "Max Retry Seconds",
           "name": "maxRetrySeconds"
