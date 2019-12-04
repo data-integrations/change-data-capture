@@ -137,9 +137,8 @@ public class CTSQLServer extends StreamingSource<StructuredRecord> {
     LOG.info("Creating change information dstream");
     ClassTag<StructuredRecord> tag = ClassTag$.MODULE$.apply(StructuredRecord.class);
     CTInputDStream dstream = new CTInputDStream(context.getSparkStreamingContext().ssc(), connectionFactory,
-                                                conf.getOperationsList(), conf.getTableWhitelist(),
-                                                conf.getSequenceStartNum(), conf.getMaxRetrySeconds(),
-                                                conf.getMaxBatchSize());
+            conf.getOperationsList(), conf.getRetentionDays(), conf.getRetentionColumn(), conf.getTableWhitelist(),
+            conf.getSequenceStartNum(), conf.getMaxRetrySeconds(), conf.getMaxBatchSize());
     return JavaDStream.fromDStream(dstream, tag)
       .mapToPair(structuredRecord -> new Tuple2<>("", structuredRecord))
       // map the dstream with schema state store to detect changes in schema

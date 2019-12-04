@@ -60,15 +60,20 @@ public class CTInputDStream extends InputDStream<StructuredRecord> {
   private boolean isFailing;
   private boolean forceFailure;
   private final Set<String> operationsList;
+  private int retentionDays;
+  private String retentionColumn;
 
   CTInputDStream(StreamingContext ssc, JdbcRDD.ConnectionFactory connectionFactory, Set<String> operationsList,
-                 Set<String> tableWhitelist, long startingOffset, long maxRetrySeconds, int maxBatchSize) {
+                 int retentionDays, String retentionColumn, Set<String> tableWhitelist, long startingOffset,
+                 long maxRetrySeconds, int maxBatchSize) {
     super(ssc, ClassTag$.MODULE$.apply(StructuredRecord.class));
     this.connectionFactory = connectionFactory;
     this.maxRetrySeconds = maxRetrySeconds;
     this.maxBatchSize = maxBatchSize;
     this.tableWhitelist = Collections.unmodifiableSet(new HashSet<>(tableWhitelist));
     this.operationsList = Collections.unmodifiableSet(new HashSet<>(operationsList));
+    this.retentionDays = retentionDays;
+    this.retentionColumn = retentionColumn;
     // if not current tracking version is given initialize it to 0
     trackingOffset = startingOffset;
   }
@@ -116,7 +121,9 @@ public class CTInputDStream extends InputDStream<StructuredRecord> {
       // retrieve the current highest tracking version
       long prev = trackingOffset;
       long cur = Math.min(getCurrentTrackingVersion(connection), prev + maxBatchSize);
-      LOG.info("Fetching changes from {} to {}", prev, cur);
+      if (prev != cur) {
+        LOG.info("Fetching changes from {} to {}", prev, cur);
+      }
 
       if (cur < prev) {
         this.forceFailure = true;
@@ -156,6 +163,13 @@ public class CTInputDStream extends InputDStream<StructuredRecord> {
   }
 
   private JavaRDD<StructuredRecord> getChangeData(TableInformation tableInformation, long prev, long cur) {
+    String retentionFilter = "";
+    if (!this.operationsList.contains("D") && this.retentionDays > 0 && this.retentionColumn != null) {
+      retentionFilter = String.format("OR [CT].[SYS_CHANGE_OPERATION] = 'D' " +
+                      "AND [CT].%s > DATEADD(day, -%s, GETDATE()) ",
+              this.retentionColumn, this.retentionDays);
+    }
+
     String stmt = String.format("SELECT [CT].[SYS_CHANGE_VERSION] as CHANGE_TRACKING_VERSION, " +
                                   "[CT].[SYS_CHANGE_CREATION_VERSION], " +
                                   "[CT].[SYS_CHANGE_OPERATION], " +
@@ -165,8 +179,11 @@ public class CTInputDStream extends InputDStream<StructuredRecord> {
                                   "CHANGETABLE (CHANGES [%s], %s) as [CT] on %s " +
                                   "where [CT].[SYS_CHANGE_VERSION] > ? " +
                                   "and [CT].[SYS_CHANGE_VERSION] <= ? " +
-                                  "and [CT].[SYS_CHANGE_OPERATION] IN " +
-                                  "('" + String.join("','", this.operationsList) + "') " +
+                                  "and (" +
+                                    "[CT].[SYS_CHANGE_OPERATION] IN " +
+                                    "('" + String.join("','", this.operationsList) + "') " +
+                                    retentionFilter +
+                                  ") " +
                                   "ORDER BY [CT].[SYS_CHANGE_VERSION]",
                                 getSelectColumns("CT", tableInformation.getPrimaryKeys()),
                                 getSelectColumns("CI", tableInformation.getValueColumnNames()),

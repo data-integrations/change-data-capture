@@ -104,6 +104,19 @@
         },
         {
           "widget-type": "textbox",
+          "label": "Retention period (days)",
+          "name": "retentionDays",
+          "widget-attributes": {
+            "default": "0"
+          }
+        },
+        {
+          "widget-type": "textbox",
+          "label": "Retention timestamp column",
+          "name": "retentionColumn"
+        },
+        {
+          "widget-type": "textbox",
           "label": "Max Retry Seconds",
           "name": "maxRetrySeconds"
         },
