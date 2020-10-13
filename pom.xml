@@ -89,7 +89,7 @@
     <guava.version>13.0.1</guava.version>
     <!-- inlined with twill's netty version-->
     <netty.version>4.1.16.Final</netty.version>
-    <junit.version>4.11</junit.version>
+    <junit.version>4.13.1</junit.version>
     <!-- properties for script build step that creates the config files for the artifacts -->
     <app.parents>system:cdap-data-streams[6.0.0,7.0.0)</app.parents>
     <main.basedir>${project.basedir}</main.basedir>
